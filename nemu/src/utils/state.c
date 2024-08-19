@@ -20,5 +20,6 @@ NEMUState nemu_state = { .state = NEMU_STOP };
 int is_exit_status_bad() {
   int good = (nemu_state.state == NEMU_END && nemu_state.halt_ret == 0) ||
     (nemu_state.state == NEMU_QUIT);
-  return !good;
+    // 2 condition: run naturally and hit good map, or someone say quit 
+  return !good; // good should == 1
 }
