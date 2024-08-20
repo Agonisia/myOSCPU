@@ -53,6 +53,42 @@ static int cmd_q(char *args) {
   return -1;
 }
 
+static int cmd_si(char *args) {
+  char *arg = strtok(NULL, " ");
+  int N = 1;
+  if (args != NULL) {
+    N = atoi(arg);
+    if (N == 0 && arg[0] != '0') {
+      printf("Invalid input: '%c'\n", arg[0]);
+      return 0;
+    }
+  }
+  cpu_exec(N);
+  nemu_state.state = NEMU_STOP;
+  return 0;
+}
+
+static int cmd_info(char *args) {
+  char *arg = strtok(NULL, " ");
+  if (arg == NULL) {
+    printf("Usage: info [r | w]\n");
+    return 0;
+  }
+
+  switch (arg[0])
+  {
+  case 'r':
+    isa_reg_display();
+    break;
+  case 'w':
+
+    break;
+  default:
+    printf("Unknown option: %s\n", arg);
+  }
+  return 0;
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -63,7 +99,8 @@ static struct {
   { "help", "Display information about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
-
+  { "si", "Execute N instructions in a single step and then pause", cmd_si},
+  { "info", "Print program status\n -r: Print register status", cmd_info},
   /* TODO: Add more commands */
 
 };
@@ -126,8 +163,10 @@ void sdb_mainloop() {
     int i;
     for (i = 0; i < NR_CMD; i ++) {
       if (strcmp(cmd, cmd_table[i].name) == 0) {
-        if (cmd_table[i].handler(args) < 0) { return; }
-        // press q return -1 to main 
+        if (cmd_table[i].handler(args) < 0) { 
+          // also can change state here to achieve 'quit elegantly', but not the best choice
+          return;
+        }
         break;
       }
     }

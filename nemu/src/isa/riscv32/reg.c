@@ -16,6 +16,22 @@
 #include <isa.h>
 #include "local-include/reg.h"
 
+/*
+$0: just zero
+ra: return address, just like x1
+sp: stack pointer, like x2
+gp: general pointer, x3
+tp: thread pointer, x4
+t0: temp reg / alter link reg
+t1 - t2: temp reg 
+s0: save reg / alter frame pointer 
+s1: save reg
+a0 - a1: func arg / func return val
+a2 - a7: func arg
+s2 - s11: save reg
+t3 - t6: temp reg
+*/
+
 const char *regs[] = {
   "$0", "ra", "sp", "gp", "tp", "t0", "t1", "t2",
   "s0", "s1", "a0", "a1", "a2", "a3", "a4", "a5",
@@ -24,6 +40,18 @@ const char *regs[] = {
 };
 
 void isa_reg_display() {
+  /*
+  reg name : hexNum : decNum 
+  */
+  // cpu.gpr[32]
+  int i = 0;
+  for (i = 0; i < 32; i++) {
+    printf("%-3s: 0x %04x %04x  (%u)\n", 
+      regs[i], 
+      (cpu.gpr[i] >> 16) & 0xFFFF, cpu.gpr[i] & 0xFFFF,
+      cpu.gpr[i]
+    );
+  }
 }
 
 word_t isa_reg_str2val(const char *s, bool *success) {
