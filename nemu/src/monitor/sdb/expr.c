@@ -22,6 +22,7 @@
 
 enum {
   TK_NOTYPE = 256, TK_EQ,
+  TK_NUMS, TK_LB, TK_RB,
 
   /* TODO: Add more token types */
 
@@ -38,20 +39,26 @@ static struct rule {
 
   {" +", TK_NOTYPE},    // spaces
   {"\\+", '+'},         // plus
+  {"\\-", '-'},         // minus
+  {"\\*", '*'},         // multiply
+  {"\\/", '/'},         // divide
+  {"[0-9]+", TK_NUMS},  // numbers  
+  {"\\(", TK_LB},       // left bracket
+  {"\\)", TK_RB},       // right bracket
   {"==", TK_EQ},        // equal
 };
 
 #define NR_REGEX ARRLEN(rules)
 
-static regex_t re[NR_REGEX] = {};
+static regex_t re[NR_REGEX] = {}; // save compiled regex
 
 /* Rules are used for many times.
  * Therefore we compile them only once before any usage.
  */
 void init_regex() {
   int i;
-  char error_msg[128];
-  int ret;
+  char error_msg[128]; // contain error message
+  int ret; // the result of whether compile success
 
   for (i = 0; i < NR_REGEX; i ++) {
     ret = regcomp(&re[i], rules[i].regex, REG_EXTENDED);
@@ -70,6 +77,12 @@ typedef struct token {
 static Token tokens[32] __attribute__((used)) = {};
 static int nr_token __attribute__((used))  = 0;
 
+typedef struct pnum {
+  PAREN_ENCLOSED,     // whole expr enclosed by brackets, brackets inside match exactly
+  PAREN_NOT_ENCLOSED, // though epxr not completely enclosed, every brackets are matched, like (EXPR) "balabala" (EXPR)
+  PAREN_NOT_MATCHED   // not enclosed and unmatched, throw it away
+} Paren_Status;
+
 static bool make_token(char *e) {
   int position = 0;
   int i;
@@ -81,8 +94,9 @@ static bool make_token(char *e) {
     /* Try all rules one by one. */
     for (i = 0; i < NR_REGEX; i ++) {
       if (regexec(&re[i], e + position, 1, &pmatch, 0) == 0 && pmatch.rm_so == 0) {
-        char *substr_start = e + position;
-        int substr_len = pmatch.rm_eo;
+        /* successful match regex && the match strat at the current pos (string offset = 0) */
+        char *substr_start = e + position; // get str's initial position
+        int substr_len = pmatch.rm_eo; // get str's length
 
         Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s",
             i, rules[i].regex, position, substr_len, substr_len, substr_start);
@@ -94,8 +108,19 @@ static bool make_token(char *e) {
          * of tokens, some extra actions should be performed.
          */
 
-        switch (rules[i].token_type) {
-          default: TODO();
+        /* record tokens*/
+        if (rules[i].token_type != TK_NOTYPE) {
+          tokens[nr_token].type = rules[i].token_type;
+
+          /* check if need some tuncation, to prevent str overflow*/
+          if (substr_len >= sizeof(tokens[nr_token].str)) {
+            // cut off redundant str
+            substr_len = sizeof(tokens[nr_token].str) - 1;
+          }
+
+          strncpy(tokens[nr_token].str, substr_start, substr_len);   // record str into tokens
+          tokens[nr_token].str[substr_len] = '\0';   // add stop sign
+          nr_token++;
         }
 
         break;
@@ -111,6 +136,110 @@ static bool make_token(char *e) {
   return true;
 }
 
+Paren_Status check_parentheses(int p, int q) {
+  if (tokens[p].type != TK_LB || tokens[q].type != TK_RB) {
+    return PAREN_NOT_ENCLOSED;
+  }
+  
+  // check if every bracket inside could match
+  int layer = 0;
+  for (int i = p; i <= q; i++) {
+    if (tokens[i].type == TK_LB) {
+      layer++;
+    } else if (tokens[i].type == TK_RB) {
+      layer--;
+      if (layer == 0 && i != q) {
+        // case1: the outer parentheses do not enclose the whole expr
+        return PAREN_NOT_ENCLOSED;
+      }
+      if (layer < 0) {
+        // case2: parentheses not paired
+        return PAREN_NOT_MATCHED;
+      }
+    }
+  }
+  
+  return layer == 0 ? PAREN_ENCLOSED : PAREN_NOT_MATCHED;
+
+}
+
+int get_operator_priority(int token_type) {
+  /* return the priority according to each operatory's weight */
+  switch (token_type)
+  {
+  case '+':
+  case '-':
+    return 1;
+  case '*':
+  case '/':
+    return 2;
+  default:
+    return INT_MAX;
+  }
+}
+
+int find_main_operator(int p, int q) {
+  int op = -1;
+  int min_priority = INT_MAX;
+  int parentheses_layer = 0;
+
+  for (int i = p; i <= q; i++) {
+    if (tokens[i].type == TK_LB) {
+      parentheses_layer++;
+    } else if (tokens[i].type == TK_RB) {
+      parentheses_layer--;
+    } else if (parentheses_layer == 0) {
+      int priority = get_operator_priority(tokens[i].type);
+      if (priority <= min_priority) {
+        min_priority = priority;
+        op = i;
+      }
+    }
+  }
+  return op;
+}
+
+word_t eval(int p, int q) {
+  if (p > q) {
+    /* Bad expression */
+    panic("Bad expression");
+    return 0;
+  }
+  else if (p == q) {
+    /* Single token.
+     * For now this token should be a number.
+     * Return the value of the number.
+     */
+    if (tokens[p].type == TK_NUMS) {
+      return atoi(tokens[p].str);
+    }
+    panic("Bad expression");
+  }
+  else {
+    Paren_Status status = check_parentheses(p, q);
+    if (status == PAREN_ENCLOSED) {
+      /* The expression is surrounded by a matched pair of parentheses.
+       *  If that is the case, just throw away the parentheses.
+       */
+      return eval(p + 1, q - 1); 
+    } else if (status == PAREN_NOT_MATCHED) {
+      panic("Parentheses not matched");
+    }
+    
+    // for not enclosed type, keep recursive
+    int op = find_main_operator(p, q);
+    word_t val1 = eval(p, op - 1);
+    word_t val2 = eval(op + 1, q);
+
+    switch (tokens[op].type) {
+      case '+': return val1 + val2;
+      case '-': return val1 - val2;
+      case '*': return val1 * val2;
+      case '/': return val1 / val2;
+      default: assert(0);
+    }
+  };
+}
 
 word_t expr(char *e, bool *success) {
   if (!make_token(e)) {
@@ -119,7 +248,8 @@ word_t expr(char *e, bool *success) {
   }
 
   /* TODO: Insert codes to evaluate the expression. */
-  TODO();
+  *success = true;
+  return eval(0, nr_token - 1);
 
   return 0;
 }

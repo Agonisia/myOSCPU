@@ -23,6 +23,7 @@ static int is_batch_mode = false;
 
 void init_regex();
 void init_wp_pool();
+word_t vaddr_read(vaddr_t addr, int len);
 
 /* We use the `readline' library to provide more flexibility to read from stdin. */
 static char* rl_gets() {
@@ -58,7 +59,7 @@ static int cmd_si(char *args) {
   int N = 1;
   if (args != NULL) {
     N = atoi(arg);
-    if (N == 0 && arg[0] != '0') {
+    if (N == 0 && N < 0 && arg[0] != '0') {
       printf("Invalid input: '%c'\n", arg[0]);
       return 0;
     }
@@ -89,6 +90,34 @@ static int cmd_info(char *args) {
   return 0;
 }
 
+/* x [N] [EXPR]*/
+static int cmd_expr_x(char *args) {
+  // get N
+  char *token =strtok(args, " ");
+  if (token == NULL) {
+    printf("Invaild argument\n");
+    return 0;
+  }
+  uint32_t N = (uint32_t) strtoul(token, NULL, 10);
+
+  // get EXPR
+  token = strtok(NULL, " ");
+  if (token == NULL) {
+    printf("Invaild argument\n");
+    return 0;
+  }
+  uint32_t start_address = 0x80000000;
+  // start_address = cmd_expr_p(token);
+
+  for (uint32_t i = 0; i < N; i++) {
+    uint32_t address = start_address + i * 4;
+    printf("%x\n", vaddr_read(address, 4));
+  }
+
+  return 0;
+}
+
+
 static int cmd_help(char *args);
 
 static struct {
@@ -100,7 +129,12 @@ static struct {
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
   { "si", "Execute N instructions in a single step and then pause", cmd_si},
-  { "info", "Print program status\n -r: Print register status", cmd_info},
+  { "info", "Print program status\n"
+    "Usage:\n"
+    "-r: Print register status", cmd_info},
+  { "x", "Find the value of given expression, and output N consecutive 4-byte outputs in hexadecimal\n"
+    "Usage:\n"
+    "x [N] [EXPR]", cmd_expr_x},
   /* TODO: Add more commands */
 
 };
