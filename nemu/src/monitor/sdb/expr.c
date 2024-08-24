@@ -19,10 +19,12 @@
  * Type 'man regex' for more information about POSIX regex functions.
  */
 #include <regex.h>
+#include <limits.h>
 
 enum {
   TK_NOTYPE = 256, TK_EQ,
   TK_NUMS, TK_LB, TK_RB,
+  TK_NEGATIVE,
 
   /* TODO: Add more token types */
 
@@ -77,7 +79,7 @@ typedef struct token {
 static Token tokens[32] __attribute__((used)) = {};
 static int nr_token __attribute__((used))  = 0;
 
-typedef struct pnum {
+typedef enum {
   PAREN_ENCLOSED,     // whole expr enclosed by brackets, brackets inside match exactly
   PAREN_NOT_ENCLOSED, // though epxr not completely enclosed, every brackets are matched, like (EXPR) "balabala" (EXPR)
   PAREN_NOT_MATCHED   // not enclosed and unmatched, throw it away
@@ -103,13 +105,15 @@ static bool make_token(char *e) {
 
         position += substr_len;
 
-        /* TODO: Now a new token is recognized with rules[i]. Add codes
+        /* Now a new token is recognized with rules[i]. Add codes
          * to record the token in the array `tokens'. For certain types
          * of tokens, some extra actions should be performed.
          */
 
+
         /* record tokens*/
         if (rules[i].token_type != TK_NOTYPE) {
+
           tokens[nr_token].type = rules[i].token_type;
 
           /* check if need some tuncation, to prevent str overflow*/
@@ -120,9 +124,28 @@ static bool make_token(char *e) {
 
           strncpy(tokens[nr_token].str, substr_start, substr_len);   // record str into tokens
           tokens[nr_token].str[substr_len] = '\0';   // add stop sign
+          
+          // devide zero detection 2
+          if (nr_token > 0 && tokens[nr_token - 1].type == '/' && 
+              tokens[nr_token].type == TK_NUMS && 
+              atoi(tokens[nr_token].str) == 0) {
+            panic("Attempted division by zero");
+          }
+
+          // check if - is negative sign or minus sign
+          if (tokens[nr_token].type == '-') {
+            if (nr_token == 0 ||
+                tokens[nr_token - 1].type == TK_LB || 
+                tokens[nr_token - 1].type == TK_NEGATIVE ||
+                tokens[nr_token - 1].type == '-' ||
+                tokens[nr_token - 1].type == '+' ||
+                tokens[nr_token - 1].type == '*' ||
+                tokens[nr_token - 1].type == '/') {
+                  tokens[nr_token].type = TK_NEGATIVE;
+                }
+          }
           nr_token++;
         }
-
         break;
       }
     }
@@ -133,6 +156,33 @@ static bool make_token(char *e) {
     }
   }
 
+  return true;
+}
+
+static bool remove_redundant_parentheses(int *p, int *q) {
+  while (*p < *q && tokens[*p].type == TK_LB && tokens[*q].type == TK_RB) {
+    int layer = 0;
+    bool is_redundant = true;
+    for (int i = *p + 1; i < *q; i++) {
+      if (tokens[i].type == TK_LB) {
+        layer++;
+      }
+      if (tokens[i].type == TK_RB) {
+        layer--;
+      }
+      if (layer < 0) {
+        is_redundant = false;
+        break;
+      } 
+    }
+    if (is_redundant) {
+      // remove outer bracket
+      (*p)++;
+      (*q)--;
+    } else {
+      break;
+    }
+  }
   return true;
 }
 
@@ -189,21 +239,99 @@ int find_main_operator(int p, int q) {
     } else if (tokens[i].type == TK_RB) {
       parentheses_layer--;
     } else if (parentheses_layer == 0) {
+      // make sure filter and ignore minus sign while judging main op
+      if (tokens[i].type == TK_NEGATIVE) {
+        continue;
+      }
+
       int priority = get_operator_priority(tokens[i].type);
+
       if (priority <= min_priority) {
         min_priority = priority;
         op = i;
       }
     }
   }
+
   return op;
 }
 
-word_t eval(int p, int q) {
+#define MAX_DEPTH 2
+#define STACK_SIZE 1000
+
+typedef struct {
+  int p, q;
+} StackFrame;
+
+word_t eval();
+
+word_t eval_iter(int p, int q) {
+  StackFrame stack[STACK_SIZE];
+  int sp = 0; //pointer
+  
+  stack[sp++] = (StackFrame) {
+    p, q
+  };
+
+  while (sp > 0) {
+    StackFrame frame = stack[--sp];
+    p = frame.p;
+    q = frame.q;
+
+    if (p > q) {
+      panic("Bad expression 2");
+      return 1;
+    } else if (p == q) {
+      if (tokens[p].type == TK_NUMS) {
+        return atoi(tokens[p].str);
+      }
+    } else {
+      Paren_Status status = check_parentheses(p, q);
+      if (status == PAREN_ENCLOSED) {
+        stack[sp++] = (StackFrame){p + 1, q - 1};
+      } else if (status == PAREN_NOT_MATCHED) {
+        panic("Parentheses not matched");
+      } else {
+        int op = find_main_operator(p, q);
+        word_t val1, val2;
+
+        stack[sp++] = (StackFrame){op + 1, q};
+        stack[sp++] = (StackFrame){p, op - 1};
+        
+        sp--;
+        val1 = eval(p, op - 1, MAX_DEPTH + 1);
+        val2 = eval(op + 1, q, MAX_DEPTH + 1);
+
+        if (tokens[op].type == '/' && val2 == 0) {
+          panic("Division by zero detected");
+        }
+
+        switch (tokens[op].type) {
+          case '+': return val1 + val2;
+          case '-': return val1 - val2;
+          case '*': return val1 * val2;
+          case '/': return (sword_t)val1 / (sword_t)val2;
+          default: panic("Unknown operator type: %d", tokens[op].type);
+        }
+      }
+    }
+  }
+  return 0;
+}
+
+word_t eval(int p, int q, int depth) {
+
+  if (depth > MAX_DEPTH) {
+    // turn to iteraitve way 
+    return eval_iter(p, q);
+  }
+
+  remove_redundant_parentheses(&p, &q);
+
   if (p > q) {
     /* Bad expression */
     panic("Bad expression");
-    return 0;
+    return 1;
   }
   else if (p == q) {
     /* Single token.
@@ -213,32 +341,37 @@ word_t eval(int p, int q) {
     if (tokens[p].type == TK_NUMS) {
       return atoi(tokens[p].str);
     }
-    panic("Bad expression");
-  }
-  else {
+  } else {
     Paren_Status status = check_parentheses(p, q);
     if (status == PAREN_ENCLOSED) {
       /* The expression is surrounded by a matched pair of parentheses.
        *  If that is the case, just throw away the parentheses.
        */
-      return eval(p + 1, q - 1); 
+      return eval(p + 1, q - 1, depth + 1); 
     } else if (status == PAREN_NOT_MATCHED) {
       panic("Parentheses not matched");
     }
     
     // for not enclosed type, keep recursive
     int op = find_main_operator(p, q);
-    word_t val1 = eval(p, op - 1);
-    word_t val2 = eval(op + 1, q);
+      word_t val1 = eval(p, op - 1, depth + 1);
+      word_t val2 = eval(op + 1, q, depth + 1);
 
-    switch (tokens[op].type) {
-      case '+': return val1 + val2;
-      case '-': return val1 - val2;
-      case '*': return val1 * val2;
-      case '/': return val1 / val2;
-      default: assert(0);
+      if (tokens[op].type == '/' && val2 == 0) {
+      // devide zero detection 1
+      panic("Deivsion by zero detected");
+      }
+
+      switch (tokens[op].type) {
+        case '+': return val1 + val2;
+        case '-': return val1 - val2;
+        case '*': return val1 * val2;
+        case '/': return (sword_t)val1 / (sword_t)val2;
+        default: panic("Unknown operator type: %d", tokens[op].type);
+      }
     }
-  };
+  
+  return 0;
 }
 
 word_t expr(char *e, bool *success) {
@@ -247,9 +380,10 @@ word_t expr(char *e, bool *success) {
     return 0;
   }
 
-  /* TODO: Insert codes to evaluate the expression. */
+  /* Insert codes to evaluate the expression. */
+  // backup option to detect devision by zero here 
   *success = true;
-  return eval(0, nr_token - 1);
+  return eval(0, nr_token - 1, 0);
 
   return 0;
 }

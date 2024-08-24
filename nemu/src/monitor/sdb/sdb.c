@@ -209,9 +209,56 @@ void sdb_mainloop() {
   }
 }
 
+void test_expr() {
+  FILE *file = fopen("/home/peize/projects/myYSYX/nemu/tools/gen-expr/input", "r");
+  if (file == NULL) {
+    perror("Error reading the file");
+    return;
+  }
+
+  size_t len = 0;
+  ssize_t read;
+  word_t true_answer;
+  char *expression;
+  bool success = false;
+  while (true) {
+    // read the true answer
+    if (fscanf(file, "%u ", &true_answer) == -1) {
+      break;
+    }
+    // read the expression
+    read = getline(&expression, &len, file);
+    if (read == -1) {
+      break;  // reach the end or error
+    }
+
+    expression[read - 1] = '\0';  // remove newline character
+
+    // get the result of expr
+    word_t result = expr(expression, &success);
+    assert(success);
+
+    if (result != true_answer) {
+      fprintf(stderr, "Test failed: Expected %u but got %u for expr: %s\n",
+              true_answer, result, expression);
+      assert(0);
+    } else {
+      printf("Test passed: %u = %u for expr: %s\n",
+              true_answer, result, expression);
+    }
+  }
+  fclose(file);
+  if (expression) {
+    free(expression);
+  }
+}
+
 void init_sdb() {
   /* Compile the regular expressions. */
   init_regex();
+
+  /* Test the expresssion interpreter. */
+  test_expr();
 
   /* Initialize the watchpoint pool. */
   init_wp_pool();

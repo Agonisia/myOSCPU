@@ -20,6 +20,9 @@
 #include <assert.h>
 #include <string.h>
 
+#define MAX_DEPTH 10
+#define MAX_NUM 500
+
 // this should be enough
 static char buf[65536] = {};
 static char code_buf[65536 + 128] = {}; // a little larger than `buf`
@@ -31,8 +34,59 @@ static char *code_format =
 "  return 0; "
 "}";
 
-static void gen_rand_expr() {
-  buf[0] = '\0';
+uint32_t choose(uint32_t n) {
+  return rand() % n;
+}
+
+static void gen_rand_nums() {
+  snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf) - 1, "%u", choose(MAX_NUM));
+}
+
+static void gen_rand_space() {
+  if (choose(4)) {
+    strncat(buf, " ", sizeof(buf) - strlen(buf) - 1);
+  }
+}
+
+static void gen_rand_operator() {
+  gen_rand_space();
+  switch (choose(4)){
+    case 0: strncat(buf, "+", sizeof(buf) - strlen(buf) - 1); break;
+    case 1: strncat(buf, "-", sizeof(buf) - strlen(buf) - 1); break;
+    case 2: strncat(buf, "*", sizeof(buf) - strlen(buf) - 1); break;
+    case 3: strncat(buf, "/", sizeof(buf) - strlen(buf) - 1); break;
+  }
+  gen_rand_space();
+}
+
+static void gen_rand_expr(int depth) {
+  // do something here 
+  /* check if dive too deep or close to full*/ 
+  if (depth > MAX_DEPTH || strlen(buf) > 65535) {
+    return;
+  }
+
+  int r = rand() % (depth == 0 ? 2 : 3);
+  switch (r)
+  {
+  case 0: // gen pure unsigned int
+    gen_rand_nums();
+    break;
+  case 1: // gen with brackets
+    strncat(buf, "(", sizeof(buf) - strlen(buf) - 1);
+    gen_rand_space();
+    gen_rand_expr(depth + 1);
+    gen_rand_space();
+    strncat(buf, ")", sizeof(buf) - strlen(buf) - 1);
+    break;
+  default:
+    gen_rand_expr(depth + 1);
+    gen_rand_operator();
+    gen_rand_expr(depth + 1);
+    break;
+  }
+
+
 }
 
 int main(int argc, char *argv[]) {
@@ -44,26 +98,31 @@ int main(int argc, char *argv[]) {
   }
   int i;
   for (i = 0; i < loop; i ++) {
-    gen_rand_expr();
+    buf[0] = '\0';
 
-    sprintf(code_buf, code_format, buf);
+    gen_rand_expr(0);
+
+    snprintf(code_buf, sizeof(code_buf), code_format, buf);
 
     FILE *fp = fopen("/tmp/.code.c", "w");
     assert(fp != NULL);
     fputs(code_buf, fp);
     fclose(fp);
 
-    int ret = system("gcc /tmp/.code.c -o /tmp/.expr");
-    if (ret != 0) continue;
-
+    int ret = system("gcc /tmp/.code.c -Wall -Werror -o /tmp/.expr");
+    if (ret != 0) {
+      continue;
+    }
     fp = popen("/tmp/.expr", "r");
     assert(fp != NULL);
 
-    int result;
-    ret = fscanf(fp, "%d", &result);
+    uint32_t result;
+    ret = fscanf(fp, "%u", &result);
     pclose(fp);
 
     printf("%u %s\n", result, buf);
+
   }
   return 0;
 }
+
