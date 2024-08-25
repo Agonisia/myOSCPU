@@ -76,7 +76,8 @@ typedef struct token {
   char str[32];
 } Token;
 
-static Token tokens[32] __attribute__((used)) = {};
+// i change here, from 32 to 64
+static Token tokens[64] __attribute__((used)) = {};
 static int nr_token __attribute__((used))  = 0;
 
 typedef enum {
@@ -122,6 +123,8 @@ static bool make_token(char *e) {
             substr_len = sizeof(tokens[nr_token].str) - 1;
           }
 
+          Assert(nr_token < 65536, "storage cant hold that much tokens");
+          Assert(substr_len < 32, "single token overflow");
           strncpy(tokens[nr_token].str, substr_start, substr_len);   // record str into tokens
           tokens[nr_token].str[substr_len] = '\0';   // add stop sign
           
@@ -156,33 +159,6 @@ static bool make_token(char *e) {
     }
   }
 
-  return true;
-}
-
-static bool remove_redundant_parentheses(int *p, int *q) {
-  while (*p < *q && tokens[*p].type == TK_LB && tokens[*q].type == TK_RB) {
-    int layer = 0;
-    bool is_redundant = true;
-    for (int i = *p + 1; i < *q; i++) {
-      if (tokens[i].type == TK_LB) {
-        layer++;
-      }
-      if (tokens[i].type == TK_RB) {
-        layer--;
-      }
-      if (layer < 0) {
-        is_redundant = false;
-        break;
-      } 
-    }
-    if (is_redundant) {
-      // remove outer bracket
-      (*p)++;
-      (*q)--;
-    } else {
-      break;
-    }
-  }
   return true;
 }
 
@@ -256,7 +232,7 @@ int find_main_operator(int p, int q) {
   return op;
 }
 
-#define MAX_DEPTH 2
+#define MAX_DEPTH 10
 #define STACK_SIZE 1000
 
 typedef struct {
@@ -326,11 +302,9 @@ word_t eval(int p, int q, int depth) {
     return eval_iter(p, q);
   }
 
-  remove_redundant_parentheses(&p, &q);
-
   if (p > q) {
     /* Bad expression */
-    panic("Bad expression");
+    panic("Bad expression 1");
     return 1;
   }
   else if (p == q) {
@@ -374,6 +348,29 @@ word_t eval(int p, int q, int depth) {
   return 0;
 }
 
+void print_tokens() {
+  for (int i = 0; i < nr_token; i++) {
+    printf("%s ", tokens[i].str);
+  }
+  printf("\n");
+}
+
+bool is_paren_balanced() {
+  int layer = 0;
+  for (int i = 0; i < nr_token; i++) {
+    if (tokens[i].type == TK_LB) {
+      layer++;
+    } else if (tokens[i].type == TK_RB) {
+      layer--;
+      if (layer < 0) {
+        // brackets unmatched
+        return false;
+      }
+    }
+  }
+  return layer == 0;
+}
+
 word_t expr(char *e, bool *success) {
   if (!make_token(e)) {
     *success = false;
@@ -381,7 +378,16 @@ word_t expr(char *e, bool *success) {
   }
 
   /* Insert codes to evaluate the expression. */
-  // backup option to detect devision by zero here 
+  // backup option to detect devision by zero here
+
+  /* check if all brackets are paired */
+  if (!is_paren_balanced()) {
+    printf("Brackets unmatched\n");
+    *success = false;
+    return 0;
+  }
+
+  // print_tokens();
   *success = true;
   return eval(0, nr_token - 1, 0);
 

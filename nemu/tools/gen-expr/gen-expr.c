@@ -21,7 +21,7 @@
 #include <string.h>
 
 #define MAX_DEPTH 10
-#define MAX_NUM 500
+#define MAX_NUM 1000
 
 // this should be enough
 static char buf[65536] = {};
@@ -74,9 +74,7 @@ static void gen_rand_expr(int depth) {
     break;
   case 1: // gen with brackets
     strncat(buf, "(", sizeof(buf) - strlen(buf) - 1);
-    gen_rand_space();
     gen_rand_expr(depth + 1);
-    gen_rand_space();
     strncat(buf, ")", sizeof(buf) - strlen(buf) - 1);
     break;
   default:
