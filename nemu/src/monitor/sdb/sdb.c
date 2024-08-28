@@ -69,6 +69,14 @@ static int cmd_si(char *args) {
   return 0;
 }
 
+static int cmd_x(char *args);
+static int cmd_p(char *args);
+static int cmd_w(char *args);
+static int cmd_d(char *args);
+void info_wp();
+void add_wp(char *expr, word_t val);
+void delete_wp(int no);
+
 static int cmd_info(char *args) {
   char *arg = strtok(NULL, " ");
   if (arg == NULL) {
@@ -76,22 +84,21 @@ static int cmd_info(char *args) {
     return 0;
   }
 
-  switch (arg[0])
-  {
-  case 'r':
-    isa_reg_display();
-    break;
-  case 'w':
-
-    break;
-  default:
-    printf("Unknown option: %s\n", arg);
+  switch (arg[0]) {
+    case 'r':
+      isa_reg_display();
+      break;
+    case 'w':
+      info_wp();
+      break;
+    default:
+      printf("Unknown option: %s\n", arg);
   }
   return 0;
 }
 
 /* x [N] [EXPR]*/
-static int cmd_expr_x(char *args) {
+static int cmd_x(char *args) {
   // get N
   char *token =strtok(args, " ");
   if (token == NULL) {
@@ -103,17 +110,69 @@ static int cmd_expr_x(char *args) {
   // get EXPR
   token = strtok(NULL, " ");
   if (token == NULL) {
-    printf("Invaild argument\n");
+    printf("Invaild expression\n");
     return 0;
   }
-  uint32_t start_address = 0x80000000;
-  // start_address = cmd_expr_p(token);
 
-  for (uint32_t i = 0; i < N; i++) {
-    uint32_t address = start_address + i * 4;
-    printf("%x\n", vaddr_read(address, 4));
+  bool success;
+  word_t start_address = 0x80000000;
+  start_address = expr(token, &success);
+  if (!success) {
+    printf("Invalid expression: %s\n", token);
+    return 0;
   }
 
+  for (word_t i = 0; i < N; i++) {
+    word_t address = start_address + i * 4;
+    printf("%x\n", vaddr_read(address, 4));
+  }
+  return 0;
+}
+
+static int cmd_p(char *args) {
+  if (args == NULL) {
+    printf("No expression provided\n");
+    return 0;
+  }
+
+  bool success = true;
+  word_t value = expr(args, &success);
+
+  if (success) {
+    printf("Result: %u (0x%x)\n", value, value);
+  } else {
+    printf("Invaild expression: %s\n", args);
+  }
+  return 0;
+}
+
+static int cmd_w(char *args) {
+  if (args == NULL) {
+    printf("No expression provided\n");
+    return 0;
+  }
+
+  bool success;
+  word_t value = expr(args, &success);
+
+  if (!success) {
+    printf("Expression evaluation error\n");
+    return 0;
+  } 
+
+  add_wp(args, value);
+  return 0;
+}
+
+static int cmd_d(char *args) {
+  char *arg = strtok(args, " ");
+  if (arg == NULL) {
+    printf("Invaild No\n");
+    return 0;
+  }
+
+  int no = strtol(arg, NULL, 10);
+  delete_wp(no);
   return 0;
 }
 
@@ -128,15 +187,18 @@ static struct {
   { "help", "Display information about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
-  { "si", "Execute N instructions in a single step and then pause", cmd_si},
+  { "si", "Execute N instructions in a single step and then pause", cmd_si },
   { "info", "Print program status\n"
     "Usage:\n"
-    "-r: Print register status", cmd_info},
+    "-r: Print register status\n"
+    "-w: Print watchpoint status\n", cmd_info },
   { "x", "Find the value of given expression, and output N consecutive 4-byte outputs in hexadecimal\n"
     "Usage:\n"
-    "x [N] [EXPR]", cmd_expr_x},
-  /* TODO: Add more commands */
-
+    "x [N] [EXPR]", cmd_x },
+  { "p", "Evaluate the given expression and return its result in decimal and hexadecimal formats" , cmd_p },
+  { "w", "Set a watchpoint at EXPR, and pause the program when it changes", cmd_w },
+  { "d", "Delete watchpoint with serial number N", cmd_d }
+  /* Add more commands */
 };
 
 #define NR_CMD ARRLEN(cmd_table)
@@ -258,7 +320,7 @@ void init_sdb() {
   init_regex();
 
   /* Test the expresssion interpreter. */
-  test_expr();
+  // test_expr();
 
   /* Initialize the watchpoint pool. */
   init_wp_pool();

@@ -39,9 +39,9 @@ const char *regs[] = {
   "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"
 };
 
-  /*
-  Output: regName  hexNum  decNum 
-  */
+/*
+* Output: regName  hexNum  decNum 
+*/
 void isa_reg_display() {
   // cpu.gpr[32]
   for (int i = 0; i < 32; i++) {
@@ -54,5 +54,23 @@ void isa_reg_display() {
 }
 
 word_t isa_reg_str2val(const char *s, bool *success) {
+  *success = false;
+
+  if (s[0] == '$') {
+    s++;
+  }
+
+  for (int i = 0; i < 32; i++) {
+    if (strcmp(s, regs[i]) == 0) {
+      *success = true;
+      return cpu.gpr[i];
+    }
+  }
+
+  if (strcmp(s, "pc") == 0) {
+    *success = true;
+    return cpu.pc;
+  }
+
   return 0;
 }

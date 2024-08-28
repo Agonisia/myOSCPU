@@ -21,10 +21,17 @@ typedef struct watchpoint {
   int NO;
   struct watchpoint *next;
 
-  /* TODO: Add more members if necessary */
+  /* Add more members if necessary */
+
+  word_t value;
+  char *expression;
 
 } WP;
 
+  /* Advantages: 
+  * 1. Limit the scope to prevent naming comfilcts
+  * 2. Static storage enable those variables thoughout whole life cycle
+  */
 static WP wp_pool[NR_WP] = {};
 static WP *head = NULL, *free_ = NULL;
 
@@ -39,5 +46,106 @@ void init_wp_pool() {
   free_ = wp_pool;
 }
 
-/* TODO: Implement the functionality of watchpoint */
+/* Implement the functionality of watchpoint */
+
+WP* new_wp() {
+  assert(free_ != NULL);
+
+  WP* wp = free_;
+  free_ = free_->next;
+
+  wp -> next = head;
+  head = wp;
+  
+  return wp;
+}
+
+
+void free_wp(WP* wp) {
+  assert(free_ != NULL);
+
+  if (head == wp) {
+    head = head->next;
+  } else {
+    WP* prev = head;
+    while (prev != NULL && prev->next != wp) {
+      prev = prev->next;
+    }
+    if (prev != NULL) {
+      // remove wp
+      prev->next = wp->next;
+    }
+  }
+
+  wp->next = free_;
+  free_ = wp;
+}
+
+void info_wp() {
+  WP* wp = head;
+  if (wp == NULL) {
+    printf("No watchpoint\n");
+    return;
+  }
+
+  printf("Num    Value     Expr\n");
+  while (wp != NULL) {
+    printf("%-3d %-12u %s\n", wp->NO, wp->value, wp->expression);
+    wp = wp->next;
+  }
+}
+
+void add_wp(char *expr, word_t val){
+  WP* wp = new_wp();
+  assert(wp != NULL);
+
+  wp->expression = strdup(expr);
+  wp->value = val;
+
+  printf("Watchpoint %d: %s\n", wp->NO, expr);
+}
+
+void delete_wp(int no) {
+  Assert(no < NR_WP, "Invalid watchpoint No");
+
+  WP* wp = head;
+  WP* prev = NULL;
+
+  while (wp != NULL) {
+    if (wp->NO == no) {
+      if (prev == NULL) {
+        head = wp->next;
+      } else {
+        prev->next = wp->next;
+      }
+
+      free_wp(wp);
+      printf("Watchpoint %d deleted\n", no);
+      return;
+    }
+    prev = wp;
+    wp = wp->next;
+  }
+
+  printf("Watchpoint %d not found\n", no);
+}
+
+void check_wp() {
+  WP* wp = head;
+  while (wp != NULL) {
+    bool success;
+    word_t new_value = expr(wp->expression, &success);
+    assert(success);
+    // printf("%u\n", new_value);
+
+    if (new_value != wp->value) {
+      printf("Watchpoint %d triggered: %s\n", wp->NO, wp->expression);
+      printf("Old value = %u\n", wp->value);
+      printf("New value = %u\n", new_value);
+
+      wp->value = new_value;
+    }
+    wp = wp->next;
+  }
+}
 
