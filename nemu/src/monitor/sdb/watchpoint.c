@@ -15,7 +15,7 @@
 
 #include "sdb.h"
 
-#define NR_WP 32
+#define NR_WP 32 // max num of watchpoint
 
 typedef struct watchpoint {
   int NO;
@@ -28,10 +28,10 @@ typedef struct watchpoint {
 
 } WP;
 
-  /* Advantages: 
-  * 1. Limit the scope to prevent naming comfilcts
-  * 2. Static storage enable those variables thoughout whole life cycle
-  */
+/* Advantages of static: 
+* 1. Limit the scope to prevent naming comfilcts
+* 2. Static storage enable those variables thoughout whole life cycle
+*/
 static WP wp_pool[NR_WP] = {};
 static WP *head = NULL, *free_ = NULL;
 
@@ -48,8 +48,9 @@ void init_wp_pool() {
 
 /* Implement the functionality of watchpoint */
 
+/* Get a watchpoint from pool and string it at the head of the list */
 WP* new_wp() {
-  assert(free_ != NULL);
+  Assert(free_ != NULL, "No idle watchpoints in pool");
 
   WP* wp = free_;
   free_ = free_->next;
@@ -60,9 +61,9 @@ WP* new_wp() {
   return wp;
 }
 
-
+/* Find the watchpoint need to be free, and also free its expression member */
 void free_wp(WP* wp) {
-  assert(free_ != NULL);
+  Assert(wp != NULL, "The watchpoint to be released cannot be NULL");
 
   if (head == wp) {
     head = head->next;
@@ -77,10 +78,14 @@ void free_wp(WP* wp) {
     }
   }
 
+  // Free the expression string
+  free(wp->expression);
+
   wp->next = free_;
   free_ = wp;
 }
 
+/* print info of each watchpoint */
 void info_wp() {
   WP* wp = head;
   if (wp == NULL) {
@@ -95,9 +100,10 @@ void info_wp() {
   }
 }
 
+/* generate a watchpoint and set its expr and val as given value */
 void add_wp(char *expr, word_t val){
   WP* wp = new_wp();
-  assert(wp != NULL);
+  Assert(wp != NULL, "Fail to add watchpoint, no idle watchpoint");
 
   wp->expression = strdup(expr);
   wp->value = val;
@@ -105,6 +111,7 @@ void add_wp(char *expr, word_t val){
   printf("Watchpoint %d: %s\n", wp->NO, expr);
 }
 
+/* delete a watchpoint from list based on the given NO */
 void delete_wp(int no) {
   Assert(no < NR_WP, "Invalid watchpoint No");
 
@@ -130,6 +137,7 @@ void delete_wp(int no) {
   printf("Watchpoint %d not found\n", no);
 }
 
+/* iterate through the watchpoint list, check and report changes in expression values */
 void check_wp() {
   WP* wp = head;
   while (wp != NULL) {

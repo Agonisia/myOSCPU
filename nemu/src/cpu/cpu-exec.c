@@ -78,7 +78,7 @@ static void exec_once(Decode *s, vaddr_t pc) {
 static void execute(uint64_t n) {
   // when we passing -1 to uint64_t, it would convert to unsigned int automatically
   // -1 in 2's complement is every digits set 1, so we get a num larger than INT_MAX
-  // so it can simulate continuous execution 
+  // thus it can simulate continuous execution 
   Decode s;
   for (;n > 0; n --) {
     exec_once(&s, cpu.pc);
@@ -131,7 +131,7 @@ void cpu_exec(uint64_t n) {
           nemu_state.halt_pc);
           // abort ? set red and say abort 
           // end1: halt_ret == 0 ? set green and say good trap
-          // end2: halt_ret != 0 -> set rend and say bay trap
+          // end2: halt_ret != 0 -> set rend and say bad trap
       // fall through
     case NEMU_QUIT: statistic();
   }

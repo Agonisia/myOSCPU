@@ -24,11 +24,11 @@
 enum {
   TK_NOTYPE = 256, TK_EQ,
   TK_NUMS, TK_LB, TK_RB,
-  TK_NEGATIVE, TK_POINTER,
+  TK_NEGATIVE, TK_POINTER, TK_POSITIVE,
   TK_AND, TK_OR, TK_NOT,
   TK_NOTEQ, TK_REG, TK_HEX,
-  TK_LE, TK_GE, TK_LT, TK_GT
-  /* TODO: Add more token types */
+  TK_LE, TK_GE, TK_LT, TK_GT,
+  /* Add more token types */
 
 };
 
@@ -37,7 +37,7 @@ static struct rule {
   int token_type;
 } rules[] = {
 
-  /* TODO: Add more rules.
+  /* Add more rules.
    * Pay attention to the precedence level of different rules.
    */
 
@@ -46,6 +46,7 @@ static struct rule {
   {"\\-", '-'},               // minus
   {"\\*", '*'},               // multiply
   {"\\/", '/'},               // divide
+  {"0x[0-9a-f]+", TK_HEX},    // hex numbers (must precede numbers)             
   {"[0-9]+", TK_NUMS},        // numbers  
   {"\\(", TK_LB},             // left bracket
   {"\\)", TK_RB},             // right bracket
@@ -59,7 +60,6 @@ static struct rule {
   {"<", TK_LT},               // less than 
   {">", TK_GT},               // greater than 
   {"\\$\\w+", TK_REG},        // reg name
-  {"0x[0-9a-f]+", TK_HEX}     // hex numbers
 };
 
 #define NR_REGEX ARRLEN(rules)
@@ -98,9 +98,11 @@ typedef enum {
   PAREN_NOT_MATCHED   // not enclosed and unmatched, throw it away
 } Paren_Status;
 
+/* parse the input string into an array of tokens, handling negative signs, pointer symbols, and divide-by-zero detection */
 static bool make_token(char *e) {
   int position = 0;
   int i;
+  int neg_count = 0;
   regmatch_t pmatch;
 
   nr_token = 0;
@@ -122,7 +124,6 @@ static bool make_token(char *e) {
          * to record the token in the array `tokens'. For certain types
          * of tokens, some extra actions should be performed.
          */
-
 
         /* record tokens*/
         if (rules[i].token_type != TK_NOTYPE) {
@@ -158,6 +159,24 @@ static bool make_token(char *e) {
                 tokens[nr_token - 1].type == '/') {
                   tokens[nr_token].type = TK_NEGATIVE;
                   Log("A negative sign detected");
+
+                  // count consecutive negative signs
+                  neg_count++;
+                  while (e[position] == '-') {
+                    position++;
+                    neg_count++;
+                  }
+
+                  // determine final type based on the count
+                  if (neg_count % 2 == 0) {
+                    tokens[nr_token].type = TK_POSITIVE;
+                    Log("Even number of negative signs detected, treating as positive");
+                  } else {
+                    tokens[nr_token].type = TK_NEGATIVE;
+                    Log("Odd number of negative signs detected, treating as negative");
+                  }
+
+                  neg_count = 0; // reset the counter
                 }
           }
 
@@ -194,6 +213,7 @@ static bool make_token(char *e) {
   return true;
 }
 
+/* check whether the brackets are paired correctly and completely enclose the expression */
 Paren_Status check_parentheses(int p, int q) {
   if (tokens[p].type != TK_LB || tokens[q].type != TK_RB) {
     return PAREN_NOT_ENCLOSED;
@@ -250,6 +270,7 @@ int get_operator_priority(int token_type) {
   }
 }
 
+/* return the location of main operator, it cannot inside the brackets */
 int find_main_operator(int p, int q) {
   int op = -1;
   int min_priority = INT_MAX;
@@ -285,6 +306,7 @@ typedef struct {
   int p, q;
 } StackFrame;
 
+/* evaluate expression value recursively, dealing divide-by-zero detection */
 word_t eval(int p, int q) {
   StackFrame stack[STACK_SIZE];
   int sp = 0; //stack pointer
@@ -319,7 +341,6 @@ word_t eval(int p, int q) {
         } else {
           panic("Invalid register");
         }
-        
       }
     } else {
       Paren_Status status = check_parentheses(p, q);
@@ -339,12 +360,15 @@ word_t eval(int p, int q) {
         word_t val = eval(op + 1, q);
         switch (tokens[op].type) {
           case TK_NEGATIVE: return -val;
+          case TK_POSITIVE: return val;
           case TK_POINTER: return vaddr_read(val, 4);
           default: panic("Unknown unary operator type: %d", tokens[op].type);
         }
       } else {
         if (tokens[p].type == TK_NEGATIVE && p + 1 <= q && tokens[p + 1].type == TK_NUMS) {
           return (word_t)-atoi(tokens[p + 1].str); 
+        } else if (tokens[p].type == TK_POSITIVE && p + 1 <= q && tokens[p + 1].type == TK_NUMS) {
+          return (word_t)atoi(tokens[p + 1].str); 
         }
 
         word_t val1, val2;
@@ -365,7 +389,7 @@ word_t eval(int p, int q) {
           case '+': return val1 + val2;
           case '-': return val1 - val2;
           case '*': return val1 * val2;
-          case '/': return (sword_t)val1 / (sword_t)val2;
+          case '/': return (sword_t)val1 / (sword_t)val2; // test samples also runs signed arithmetic and converts to uint32_t
           case TK_EQ: return val1 == val2;
           case TK_NOTEQ: return val1 != val2;
           case TK_LT: return val1 < val2;
@@ -382,29 +406,7 @@ word_t eval(int p, int q) {
   return 0;
 }
 
-void print_tokens() {
-  for (int i = 0; i < nr_token; i++) {
-    printf("%s ", tokens[i].str);
-  }
-  printf("\n");
-}
-
-bool is_paren_balanced() {
-  int layer = 0;
-  for (int i = 0; i < nr_token; i++) {
-    if (tokens[i].type == TK_LB) {
-      layer++;
-    } else if (tokens[i].type == TK_RB) {
-      layer--;
-      if (layer < 0) {
-        // brackets unmatched
-        return false;
-      }
-    }
-  }
-  return layer == 0;
-}
-
+/* parse and evaluate the value of an expression */
 word_t expr(char *e, bool *success) {
   if (!make_token(e)) {
     *success = false;
@@ -414,14 +416,6 @@ word_t expr(char *e, bool *success) {
   /* Insert codes to evaluate the expression. */
   // backup option to detect devision by zero here
 
-  /* check if all brackets are paired */
-  if (!is_paren_balanced()) {
-    printf("Brackets unmatched\n");
-    *success = false;
-    return 0;
-  }
-
-  // print_tokens();
   *success = true;
   return eval(0, nr_token - 1);
 

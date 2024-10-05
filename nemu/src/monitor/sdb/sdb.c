@@ -48,12 +48,12 @@ static int cmd_c(char *args) {
   return 0;
 }
 
-
 static int cmd_q(char *args) {
   nemu_state.state = NEMU_QUIT;
   return -1;
 }
 
+/* si [N] */
 static int cmd_si(char *args) {
   char *arg = strtok(NULL, " ");
   int N = 1;
@@ -65,7 +65,6 @@ static int cmd_si(char *args) {
     }
   }
   cpu_exec(N);
-  nemu_state.state = NEMU_STOP;
   return 0;
 }
 
@@ -77,6 +76,7 @@ void info_wp();
 void add_wp(char *expr, word_t val);
 void delete_wp(int no);
 
+/* info [SUBCMD: r/w]*/
 static int cmd_info(char *args) {
   char *arg = strtok(NULL, " ");
   if (arg == NULL) {
@@ -97,10 +97,10 @@ static int cmd_info(char *args) {
   return 0;
 }
 
-/* x [N] [EXPR]*/
+/* x [N] [EXPR] */
 static int cmd_x(char *args) {
   // get N
-  char *token =strtok(args, " ");
+  char *token = strtok(args, " ");
   if (token == NULL) {
     printf("Invaild argument\n");
     return 0;
@@ -108,15 +108,15 @@ static int cmd_x(char *args) {
   uint32_t N = (uint32_t) strtoul(token, NULL, 10);
 
   // get EXPR
-  token = strtok(NULL, " ");
-  if (token == NULL) {
+  char *remain = args + strlen(token) + 1;
+  if (remain == NULL) {
     printf("Invaild expression\n");
     return 0;
   }
 
   bool success;
   word_t start_address = 0x80000000;
-  start_address = expr(token, &success);
+  start_address = expr(remain, &success);
   if (!success) {
     printf("Invalid expression: %s\n", token);
     return 0;
@@ -129,6 +129,7 @@ static int cmd_x(char *args) {
   return 0;
 }
 
+/* p [EXPR] */
 static int cmd_p(char *args) {
   if (args == NULL) {
     printf("No expression provided\n");
@@ -146,6 +147,7 @@ static int cmd_p(char *args) {
   return 0;
 }
 
+/* w [EXPR] */
 static int cmd_w(char *args) {
   if (args == NULL) {
     printf("No expression provided\n");
@@ -164,6 +166,7 @@ static int cmd_w(char *args) {
   return 0;
 }
 
+/* d [N] */
 static int cmd_d(char *args) {
   char *arg = strtok(args, " ");
   if (arg == NULL) {
@@ -176,7 +179,6 @@ static int cmd_d(char *args) {
   return 0;
 }
 
-
 static int cmd_help(char *args);
 
 static struct {
@@ -187,17 +189,17 @@ static struct {
   { "help", "Display information about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
-  { "si", "Execute N instructions in a single step and then pause", cmd_si },
+  { "si", "Execute [N] instructions in a single step and then pause", cmd_si },
   { "info", "Print program status\n"
     "Usage:\n"
     "-r: Print register status\n"
     "-w: Print watchpoint status\n", cmd_info },
-  { "x", "Find the value of given expression, and output N consecutive 4-byte outputs in hexadecimal\n"
+  { "x", "Find the value of given expression, and output [N] consecutive 4-byte outputs in hexadecimal\n"
     "Usage:\n"
     "x [N] [EXPR]", cmd_x },
-  { "p", "Evaluate the given expression and return its result in decimal and hexadecimal formats" , cmd_p },
-  { "w", "Set a watchpoint at EXPR, and pause the program when it changes", cmd_w },
-  { "d", "Delete watchpoint with serial number N", cmd_d }
+  { "p", "Evaluate the given [EXPR] and return its result in decimal and hexadecimal formats" , cmd_p },
+  { "w", "Set a watchpoint at [EXPR], and pause the program when it changes", cmd_w },
+  { "d", "Delete watchpoint with serial number [N]", cmd_d }
   /* Add more commands */
 };
 
@@ -279,7 +281,7 @@ void test_expr() {
   }
 
   size_t len = 0;
-  ssize_t read;
+  size_t read;
   word_t true_answer;
   char *expression;
   bool success = false;
