@@ -46,7 +46,7 @@ static struct rule {
   {"\\-", '-'},               // minus
   {"\\*", '*'},               // multiply
   {"\\/", '/'},               // divide
-  {"0x[0-9a-f]+", TK_HEX},    // hex numbers (must precede numbers)             
+  {"0x[0-9a-fA-F]+", TK_HEX}, // hex numbers (must precede numbers)             
   {"[0-9]+", TK_NUMS},        // numbers  
   {"\\(", TK_LB},             // left bracket
   {"\\)", TK_RB},             // right bracket

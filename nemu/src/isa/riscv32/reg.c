@@ -45,12 +45,17 @@ const char *regs[] = {
 void isa_reg_display() {
   // cpu.gpr[32]
   for (int i = 0; i < 32; i++) {
-    printf("%-3s: 0x %04x %04x  (%u)\n", 
+    printf("%-3s: 0x_%04x_%04x  (%u)\n", 
       regs[i], 
       (cpu.gpr[i] >> 16) & 0xFFFF, cpu.gpr[i] & 0xFFFF,
       cpu.gpr[i]
     );
   }
+  // cpu.pc
+  printf("$pc: 0x_%04x_%04x  (%u)\n", 
+    (cpu.pc >> 16) & 0xFFFF, cpu.pc & 0xFFFF,
+    cpu.pc
+  );
 }
 
 word_t isa_reg_str2val(const char *s, bool *success) {

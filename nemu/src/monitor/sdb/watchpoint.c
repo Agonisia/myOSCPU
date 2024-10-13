@@ -95,7 +95,7 @@ void info_wp() {
 
   printf("Num    Value     Expr\n");
   while (wp != NULL) {
-    printf("%-3d %-12u %s\n", wp->NO, wp->value, wp->expression);
+    printf("%-6d %-9u %s\n", wp->NO, wp->value, wp->expression);
     wp = wp->next;
   }
 }
@@ -152,6 +152,7 @@ void check_wp() {
       printf("New value = %u\n", new_value);
 
       wp->value = new_value;
+      nemu_state.state = NEMU_STOP;
     }
     wp = wp->next;
   }
