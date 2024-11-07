@@ -52,23 +52,38 @@ static void decode_operand(Decode *s, int *rd, word_t *src1, word_t *src2, word_
   }
 }
 
+void func_call_trace(vaddr_t addr_curr, vaddr_t addr_func);
+void func_ret_trace(vaddr_t addr_curr);
+
+void func_trace_check(int rd, vaddr_t addr_curr, vaddr_t addr_func, word_t *src1) {
+  #ifdef CONFIG_FTRACE
+  if (rd == 1) {
+    func_call_trace(addr_curr, addr_func);
+  } else if (rd == 0 && src1 != NULL && *src1 == R(1)) {
+    func_ret_trace(addr_curr);
+  }
+  #endif
+}
+
 static int decode_exec(Decode *s) {
   int rd = 0;
   word_t src1 = 0, src2 = 0, imm = 0;
   s->dnpc = s->snpc;
 
-#define INSTPAT_INST(s) ((s)->isa.inst.val)
-#define INSTPAT_MATCH(s, name, type, ... /* execute body */ ) { \
-  decode_operand(s, &rd, &src1, &src2, &imm, concat(TYPE_, type)); \
-  __VA_ARGS__ ; \
-}
+  #define INSTPAT_INST(s) ((s)->isa.inst.val)
+  #define INSTPAT_MATCH(s, name, type, ... /* execute body */ ) { \
+    decode_operand(s, &rd, &src1, &src2, &imm, concat(TYPE_, type)); \
+    __VA_ARGS__ ; \
+  }
 
   INSTPAT_START();
   INSTPAT("??????? ????? ????? ??? ????? 01101 11", lui    , U, R(rd) = imm); // Load Unsigned Imm
   INSTPAT("??????? ????? ????? ??? ????? 00101 11", auipc  , U, R(rd) = s->pc + imm); // Add Upper Imm to PC
 
-  INSTPAT("??????? ????? ????? ??? ????? 11011 11", jal    , J, R(rd) = s->snpc; s->dnpc = s->pc + imm); // Jump And Link
-  INSTPAT("??????? ????? ????? 000 ????? 11001 11", jalr   , I, R(rd) = s->snpc; s->dnpc = (src1 + imm) & (word_t)~1); // Jump And Link Register
+  INSTPAT("??????? ????? ????? ??? ????? 11011 11", jal    , J, R(rd) = s->snpc; s->dnpc = s->pc + imm; 
+                                                                func_trace_check(rd, s->pc, s->dnpc, NULL)); // Jump And Link
+  INSTPAT("??????? ????? ????? 000 ????? 11001 11", jalr   , I, R(rd) = s->snpc; s->dnpc = (src1 + imm) & (word_t)~1; 
+                                                                func_trace_check(rd, s->pc, s->dnpc, &src1)); // Jump And Link Register
   
   INSTPAT("??????? ????? ????? 000 ????? 11000 11", beq    , B, if(src1 == src2) s->dnpc = s->pc + imm); // Branch EQual 
   INSTPAT("??????? ????? ????? 001 ????? 11000 11", bne    , B, if(src1 != src2) s->dnpc = s->pc + imm); // Branch Not Equal

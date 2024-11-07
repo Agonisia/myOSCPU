@@ -32,12 +32,22 @@ static bool g_print_step = false;
 
 void device_update();
 void check_wp();
+void inst_trace(Decode *s);
+void print_ring_buffer();
 
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #ifdef CONFIG_ITRACE_COND
-  if (ITRACE_COND) { log_write("%s\n", _this->logbuf); }
+  // if itrace open, write log into logbuf
+  if (ITRACE_COND) { 
+    log_write("%s\n", _this->logbuf); 
+  }
 #endif
-  if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
+  // if itrace open and g_print_step is true, output the log on terminal
+  if (g_print_step) { 
+    IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); 
+  }
+
+  // difftest check
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
 
   // checkpoint check
@@ -47,32 +57,10 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 static void exec_once(Decode *s, vaddr_t pc) {
   s->pc = pc;
   s->snpc = pc;
-  isa_exec_once(s);
+  isa_exec_once(s); // instruction fetch
   cpu.pc = s->dnpc;
-#ifdef CONFIG_ITRACE
-  char *p = s->logbuf;
-  p += snprintf(p, sizeof(s->logbuf), FMT_WORD ":", s->pc);
-  int ilen = s->snpc - s->pc;
-  int i;
-  uint8_t *inst = (uint8_t *)&s->isa.inst.val;
-  for (i = ilen - 1; i >= 0; i --) {
-    p += snprintf(p, 4, " %02x", inst[i]);
-  }
-  int ilen_max = MUXDEF(CONFIG_ISA_x86, 8, 4);
-  int space_len = ilen_max - ilen;
-  if (space_len < 0) space_len = 0;
-  space_len = space_len * 3 + 1;
-  memset(p, ' ', space_len);
-  p += space_len;
-
-#ifndef CONFIG_ISA_loongarch32r
-  void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
-  disassemble(p, s->logbuf + sizeof(s->logbuf) - p,
-      MUXDEF(CONFIG_ISA_x86, s->snpc, s->pc), (uint8_t *)&s->isa.inst.val, ilen);
-#else
-  p[0] = '\0'; // the upstream llvm does not support loongarch32r
-#endif
-#endif
+  // Notice: I move the orgin implement of itrace to a individual function at tracer.c
+  inst_trace(s);
 }
 
 static void execute(uint64_t n) {
@@ -101,6 +89,7 @@ static void statistic() {
 void assert_fail_msg() {
   isa_reg_display();
   statistic();
+  print_ring_buffer();
 }
 
 /* Simulate how the CPU works. */
