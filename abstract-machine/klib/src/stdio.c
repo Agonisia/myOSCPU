@@ -3,7 +3,7 @@
 #include <klib-macros.h>
 #include <stdarg.h>
 
-#if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
+#if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__) // while macro is defined, using those func in stdio, stdlib and string
 
 /*  Upon successful return, these functions return the number of bytes printed (excluding the null byte used to end output to strings).
 
@@ -60,20 +60,44 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
   }
   
   size_t len = 0;
+  size_t total_len = 0; // total string length without truncation, for the return value
+  bool precision_flag = false;
+  int precision = -1;
 
-  while (*fmt && len < n - 1) {
-    if (*fmt == '%') {
+  while (*fmt) {
+    if (*fmt == '%' && *(fmt + 1)) {
       ++fmt; // skip % sign, using symbol behind it
+      if (*fmt == '.') {
+        // check the precsion sign
+        precision_flag = true;
+        fmt++;
+        precision = 0;
+        // read the value of given precision
+        while (*fmt >= '0' && *fmt <= '9') {
+          precision = precision * 10 + (*fmt - '0');
+          fmt++;
+        }
+      }
+      
       switch (*fmt) {
         case 's': {
           // string case
           const char *str = va_arg(ap, const char *);
           assert(str != NULL);
-          size_t str_len = strlen(str); // total string length
-          size_t to_copy = (str_len > n - len - 1) ? n - len - 1 : str_len; // detect len of string need to be copied
-          memcpy(out, str, to_copy);
-          out += to_copy; // move to end of the string 
-          len += to_copy; // update num of total written string
+          size_t str_len = strlen(str); 
+          total_len += str_len; // total string length
+
+          size_t to_copy = precision_flag ? (precision < str_len ? precision : str_len) : str_len; // detect len of string need to be copied
+          size_t copy_len = (to_copy > n - len - 1) ? n - len - 1 : to_copy;
+          if (len < n - 1) {
+            memcpy(out, str, copy_len);
+            out += copy_len; // move to end of the string 
+            len += copy_len; // update num of total written string
+          }
+
+          // reset precision flag 
+          precision_flag = false;
+          precision = -1;
           break;
         }
         case 'd': {
@@ -82,28 +106,45 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
           char buf[20];
           itoa(num, buf, 10);
           size_t num_len = strlen(buf);
+          total_len += num_len;
+
           size_t to_copy = (num_len > n - len - 1) ? n - len - 1 : num_len;
-          memcpy(out, buf, to_copy);
-          out += to_copy;
-          len += to_copy;
+          if (len < n - 1) {
+            memcpy(out, buf, to_copy);
+            out += to_copy;
+            len += to_copy;
+          }
+
+          // reset precision flag 
+          precision_flag = false;
+          precision = -1;
           break;
         }
         default: {
           // unknown type
-          *out++ = *fmt; // just copy it
-          len++;
+          if (len < n - 1) { // make sure write inside buffer
+            *out++ = *fmt; // just copy it
+            len++;
+          }
+          total_len++;
+          // reset precision flag 
+          precision_flag = false;
+          precision = -1;
           break;
         }
       }
     } else {
-      *out++ = *fmt;
-      len++;
+      if (len < n - 1) {
+        *out++ = *fmt;
+        len++;
+      }
+      total_len++;
     }
     fmt++;
   }
 
   *out = '\0'; // add teminator 
-  return len; // return num actally written
+  return total_len; // return num actally written
 }
 
 /*  vsprintf formats a string and stores it in a buffer using a va_list of arguments. */
