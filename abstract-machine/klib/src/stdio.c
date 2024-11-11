@@ -60,80 +60,107 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
   }
   
   size_t len = 0;
-  size_t total_len = 0; // total string length without truncation, for the return value
+  size_t total_len = 0; // // total string length without truncation and padding, for the return value
   bool precision_flag = false;
   int precision = -1;
+  bool padding_flag = false;
+  int padding = 0;
 
   while (*fmt) {
     if (*fmt == '%' && *(fmt + 1)) {
       ++fmt; // skip % sign, using symbol behind it
+
+      // reset flag
+      precision_flag = false;
+      precision = -1;
+      padding_flag = false;
+      padding = 0;
+
+      // check for padding (e.g., %02d)
+      if (*fmt == '0') { // Padding with '0' detected
+        padding_flag = true;
+        ++fmt; // skip the zero
+        // read the width value (e.g., 2 in %02d)
+        while (*fmt >= '0' && *fmt <= '9') {
+          padding = padding * 10 + (*fmt - '0');
+          ++fmt;
+        }
+      }        
+
+      // check for precision (e.g., %.5d or %.3s)
       if (*fmt == '.') {
-        // check the precsion sign
         precision_flag = true;
-        fmt++;
+        ++fmt; // skip the dot
         precision = 0;
-        // read the value of given precision
+        // read the precision value (e.g., 3 in %.3s)
         while (*fmt >= '0' && *fmt <= '9') {
           precision = precision * 10 + (*fmt - '0');
-          fmt++;
+          ++fmt;
         }
       }
-      
+
+      // handle the type (s, d, etc.)
       switch (*fmt) {
-        case 's': {
-          // string case
-          const char *str = va_arg(ap, const char *);
-          assert(str != NULL);
-          size_t str_len = strlen(str); 
-          total_len += str_len; // total string length
-
-          size_t to_copy = precision_flag ? (precision < str_len ? precision : str_len) : str_len; // detect len of string need to be copied
-          size_t copy_len = (to_copy > n - len - 1) ? n - len - 1 : to_copy;
-          if (len < n - 1) {
-            memcpy(out, str, copy_len);
-            out += copy_len; // move to end of the string 
-            len += copy_len; // update num of total written string
-          }
-
-          // reset precision flag 
-          precision_flag = false;
-          precision = -1;
-          break;
-        }
         case 'd': {
-          // decimal num case 
+          // handle integer case
           int num = va_arg(ap, int);
           char buf[20];
-          itoa(num, buf, 10);
+          itoa(num, buf, 10); // convert integer to string
           size_t num_len = strlen(buf);
           total_len += num_len;
 
-          size_t to_copy = (num_len > n - len - 1) ? n - len - 1 : num_len;
-          if (len < n - 1) {
-            memcpy(out, buf, to_copy);
-            out += to_copy;
-            len += to_copy;
+          // adjust width for precision
+          int width = (precision > num_len) ? precision - num_len + 1 : 0;
+          int total_width = (padding > num_len) ? padding : num_len;
+          total_width = (precision_flag && precision > num_len) ? precision : total_width;
+
+          // add padding for width
+          width = (total_width > num_len) ? total_width - num_len - width : 0;
+          for (int i = 0; i < width && len < n - 1; i++) {
+            *out++ = (padding_flag ? '0' : ' ');
+            len++;
           }
 
-          // reset precision flag 
-          precision_flag = false;
-          precision = -1;
+          // copy the number to output buffer
+          size_t to_copy = (num_len > n - len - 1) ? n - len - 1 : num_len;
+          if (len < n - 1) {
+              memcpy(out, buf, to_copy);
+              out += to_copy;
+              len += to_copy;
+          }
           break;
         }
+
+        case 's': {
+          // handle string case
+          const char *str = va_arg(ap, const char *);
+          assert(str != NULL);
+          size_t str_len = strlen(str); 
+          total_len += str_len;
+
+          // adjust for precision
+          size_t to_copy = precision_flag ? (precision < str_len ? precision : str_len) : str_len;
+          size_t copy_len = (to_copy > n - len - 1) ? n - len - 1 : to_copy;
+          if (len < n - 1) {
+            memcpy(out, str, copy_len);
+            out += copy_len;
+            len += copy_len;
+          }
+          break;
+        }
+
         default: {
-          // unknown type
-          if (len < n - 1) { // make sure write inside buffer
-            *out++ = *fmt; // just copy it
+          // handle unknown specifiers
+          if (len < n - 1) { // make sure to write inside buffer
+            *out++ = *fmt;
             len++;
           }
           total_len++;
-          // reset precision flag 
-          precision_flag = false;
-          precision = -1;
           break;
         }
       }
     } else {
+      // read next character
       if (len < n - 1) {
         *out++ = *fmt;
         len++;
@@ -143,8 +170,8 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
     fmt++;
   }
 
-  *out = '\0'; // add teminator 
-  return total_len; // return num actally written
+  *out = '\0'; // NULL terminator
+  return total_len; // return the total number of characters written
 }
 
 /*  vsprintf formats a string and stores it in a buffer using a va_list of arguments. */
