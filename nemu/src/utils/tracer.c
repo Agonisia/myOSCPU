@@ -2,6 +2,7 @@
 #include <common.h>
 #include <cpu/cpu.h>
 #include <cpu/decode.h>
+#include <device/map.h>
 #include <elf.h>
 
 #define MAX_SIZE_RING_BUFFER 16
@@ -77,6 +78,14 @@ void mem_read_trace(paddr_t addr, int len) {
 
 void mem_write_trace(paddr_t addr, int len, word_t data) {
   printf("Write to physical memory: addr = " FMT_PADDR ", len = %d, data = " FMT_WORD "\n", addr, len, data);
+}
+
+void device_read_trace(paddr_t addr, int len, IOMap *map) {
+  printf("Read from %8s: addr = "FMT_PADDR", len = %d\n", map->name, addr, len);
+}
+
+void device_write_trace(paddr_t addr, int len, word_t data, IOMap *map) {
+  printf("Write to %8s: addr = "FMT_PADDR", len = %d, data = " FMT_WORD "\n", map->name, addr, len, data);
 }
 
 typedef struct {
