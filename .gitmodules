@@ -1,0 +1,15 @@
+[submodule "npc/chisel-template"]
+	path = npc/chisel-template
+	url = git@github.com:Agonisia/my-chisel-for-ysyx.git
+[submodule "nvboard"]
+	path = nvboard
+	url = git@github.com:NJU-ProjectN/nvboard.git
+[submodule "yosys-sta"]
+	path = yosys-sta
+	url = git@github.com:OSCPU/yosys-sta.git
+[submodule "fceux-am"]
+	path = fceux-am
+	url = git@github.com:NJU-ProjectN/fceux-am.git
+[submodule "am-kernels"]
+	path = am-kernels
+	url = git@github.com:Agonisia/my-am-kernels.git
