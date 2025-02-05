@@ -17,7 +17,14 @@ static const char mainargs[] = MAINARGS;
 void putch(char ch) {
 }
 
+// reference: am/src/platform/nemu/include/nemu.h, Ln 14
+#define npc_trap(code) asm volatile("mv a0, %0; ebreak" : :"r"(code))
+
 void halt(int code) {
+  // add a ebreak instruction 
+  npc_trap(code);
+
+  // dead loop, should not reach here
   while (1);
 }
 

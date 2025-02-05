@@ -119,8 +119,8 @@ void cpu_exec(uint64_t n) {
             ANSI_FMT("HIT BAD TRAP", ANSI_FG_RED))),
           nemu_state.halt_pc);
           // abort ? set red and say abort 
-          // end1: halt_ret == 0 ? set green and say good trap
-          // end2: halt_ret != 0 -> set rend and say bad trap
+          // end1: halt_ret == 0 -> set green and say good trap
+          // end2: halt_ret != 0 -> set red and say bad trap
       // fall through
     case NEMU_QUIT: statistic();
   }

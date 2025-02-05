@@ -1,6 +1,7 @@
 *.*
 *
 !*/
+!CMakeLists.txt
 !Makefile
 !*.mk
 !*.[cSh]
