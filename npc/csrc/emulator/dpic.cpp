@@ -1,5 +1,6 @@
 #include "emulator/dpic.h"
 #include "memory/paddr.h"
+#include "emulator/difftest.h"
 
 void func_call_trace(vaddr_t addr_curr, vaddr_t addr_func);
 void func_ret_trace(vaddr_t addr_curr);
@@ -60,11 +61,39 @@ extern "C" void func_check(int rdest, vaddr_t addr_curr, vaddr_t addr_jump, word
 }
 
 /* return 4 bytes read from address `addr & ~0x3u` */
-extern "C" int mem_read(paddr_t addr) {
-  printf("mem_read: 0x%08x\n", addr);
+extern "C" int mem_read(paddr_t addr) { // load type 
   vaddr_t addr_aligned = addr & ~0x3u;
+  int offset = addr & 0x3u;
+
+  if (addr == CONFIG_SERIAL_ADDR) { // serial
+    IFONE(CONFIG_DIFFTEST, difftest_skip_ref());
+    return getchar();
+  }
+
+  if (addr == CONFIG_RTC_ADDR) { // rtc
+    IFONE(CONFIG_DIFFTEST, difftest_skip_ref());
+    return (uint32_t)get_time();
+  } else if (addr == CONFIG_RTC_ADDR + 4) {
+    IFONE(CONFIG_DIFFTEST, difftest_skip_ref());
+    return (uint32_t)(get_time() >> 32);
+  } 
+
+  // if (addr == CONFIG_VGA_ADDR) { // vga
+  //   IFONE(CONFIG_DIFFTEST, difftest_skip_ref());
+  //   printf("vga sync: %d\n", vgactl_port_base[1]);
+  //   return;
+  // } else if (addr == CONFIG_VGA_ADDR + 4) {
+  //   IFONE(CONFIG_DIFFTEST, difftest_skip_ref());
+  //   return vgactl_port_base[1];
+  // }
+
   word_t data = paddr_read(addr_aligned, 4);
-  return data; 
+
+  if (offset) { // if not aligned
+    return (data >> (offset * 8)) & 0xFFFFFFFF; // get the byte based on the offset
+  } else {
+    return data;
+  }
 }
 
 /*
@@ -72,19 +101,37 @@ extern "C" int mem_read(paddr_t addr) {
   each bit in `mask` represents a 1-byte mask in `data`
   e.g. `mask = 0x3` means only the lowest 2 bytes are written, rest of remains unchanged. 
 */
-extern "C" void mem_write(paddr_t addr, uint8_t mask, word_t data) {
+extern "C" void mem_write(paddr_t addr, uint8_t mask, word_t data) { // store type
   vaddr_t addr_aligned = addr & ~0x3u;
+  int offset = addr & 0x3u;
 
-  // update the data byte-by-byte
+  if (addr == CONFIG_SERIAL_ADDR) { // serial
+    IFONE(CONFIG_DIFFTEST, difftest_skip_ref());
+    putchar(data);
+    return;
+  } 
+
+  // if (addr == CONFIG_VGA_ADDR + 4) { // vga
+  //   IFONE(CONFIG_DIFFTEST, difftest_skip_ref());
+  //   printf("vga sync: %d\n", data);
+  //   vgactl_port_base[1] = data;
+  //   return;
+  // }
+
+  word_t data_origin = paddr_read(addr_aligned, 4);
+  word_t mask_shift = 0;
+  word_t data_shift = 0;
+
   for (int i = 0; i < 4; i++) {
-    if (mask & (1 << i)) {
-      uint8_t new_byte = (data >> (i * 8)) & 0xFF; // get the `i` byte of new data 
-      data &= ~(0xFF << (i * 8)); // clear the `i` byte of old data 
-      data |= (new_byte << (i * 8)); // write the `i` byte of new data 
+    if (mask & (1 << i)) { // if current byte is to be written 
+      uint8_t byte = (data >> (i * 8)) & 0xFF; // extract the byte in new data
+      mask_shift |= (0xFF << ((i + offset) % 4) * 8); // reconstruct mask based on the offset
+      data_shift |= (byte << ((i + offset) % 4) * 8); // reconstruct data based on the offset
     }
   }
 
-  paddr_write(addr_aligned, 4, data);
+  word_t data_final = (data_origin & ~mask_shift) | (data_shift & mask_shift);
+  paddr_write(addr_aligned, 4, data_final);
 }
 
 

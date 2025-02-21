@@ -11,10 +11,10 @@ RingBuffer ring_buffer = {{{0}}, 0, 0};
 
 void print_ring_buffer() {
   printf("Error occurred, recent instructions:\n");
-  int index = ring_buffer.head;
+
   for (int i = 0; i < ring_buffer.size; i++) {
-    index = (index - 1 + MAX_SIZE_RING_BUFFER) % MAX_SIZE_RING_BUFFER; // move backward
-    if (index == 0) {
+    int index = (ring_buffer.head - ring_buffer.size + i + MAX_SIZE_RING_BUFFER) % MAX_SIZE_RING_BUFFER;
+    if (i == ring_buffer.size - 1) { // the latest instruction
       printf("--> %s\n", ring_buffer.buffer[index]); // the error instruction
     } else {
       printf("    %s\n", ring_buffer.buffer[index]);

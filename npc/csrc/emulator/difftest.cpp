@@ -5,7 +5,7 @@ void (*ref_difftest_regcpy)(void *dut, bool direction) = NULL;
 void (*ref_difftest_exec)(uint64_t n) = NULL;
 void (*ref_difftest_raise_intr)(uint64_t NO) = NULL;
 
-void reg_display();
+void assert_fail_msg();
 
 static bool is_skip_ref = false;
 enum { DIFFTEST_TO_DUT, DIFFTEST_TO_REF };
@@ -23,7 +23,7 @@ static void checkregs(CORE_state *ref, vaddr_t pc) {
       Log("Register mismatch at gpr[%d]: DUT = " FMT_WORD ", REF = " FMT_WORD, i, core.gpr[i], ref->gpr[i]);
       sim_state.state = SIM_ABORT;
       sim_state.halt_pc = core.pc;
-      reg_display(); 
+      assert_fail_msg();
       return;
     }
   }

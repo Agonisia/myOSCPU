@@ -17,7 +17,7 @@ extern SIM_state sim_state;
 
 // ----------- timer -----------
 
-// uint64_t get_time();
+uint64_t get_time();
 
 // ----------- log -----------
 

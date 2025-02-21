@@ -293,7 +293,7 @@ typedef struct {
 /* evaluate expression value recursively, dealing divide-by-zero detection */
 word_t eval(int p, int q) {
   StackFrame stack[STACK_SIZE];
-  int sp = 0; //stack pointer
+  int sp = 0; // stack pointer
   
   stack[sp++] = (StackFrame) {
     p, q

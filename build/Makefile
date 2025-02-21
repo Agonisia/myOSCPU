@@ -117,17 +117,17 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named verilator_build
+# Target rules for targets named build_verilator
 
 # Build rule for target.
-verilator_build: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 verilator_build
-.PHONY : verilator_build
+build_verilator: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 build_verilator
+.PHONY : build_verilator
 
 # fast build rule for target.
-verilator_build/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/verilator_build.dir/build.make CMakeFiles/verilator_build.dir/build
-.PHONY : verilator_build/fast
+build_verilator/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/build_verilator.dir/build.make CMakeFiles/build_verilator.dir/build
+.PHONY : build_verilator/fast
 
 #=============================================================================
 # Target rules for targets named sync
@@ -229,13 +229,13 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... build_full"
+	@echo "... build_verilator"
 	@echo "... clean_all"
 	@echo "... fst"
 	@echo "... mill"
 	@echo "... sbt"
 	@echo "... sim"
 	@echo "... sync"
-	@echo "... verilator_build"
 .PHONY : help
 
 

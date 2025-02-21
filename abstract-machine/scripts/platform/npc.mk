@@ -3,6 +3,7 @@ AM_SRCS := riscv/npc/start.S \
            riscv/npc/ioe.c \
            riscv/npc/timer.c \
            riscv/npc/input.c \
+           riscv/npc/gpu.c \
            riscv/npc/cte.c \
            riscv/npc/trap.S \
            platform/dummy/vme.c \
@@ -15,7 +16,7 @@ LDFLAGS   += --gc-sections -e _start
 NPCFLAGS += -l $(shell dirname $(IMAGE).elf)/npc-log.txt # log file
 NPCFLAGS += -e $(IMAGE).elf # open elf parse option
 NPCFLAGS += -d $(NEMU_HOME)/build/riscv32-nemu-interpreter-so # dynamic library path for difftest
-# NPCFLAGS += -b  # open batch mode
+NPCFLAGS += -b  # open batch mode
 
 CFLAGS += -DMAINARGS=\"$(mainargs)\"
 .PHONY: $(AM_HOME)/am/src/riscv/npc/trm.c

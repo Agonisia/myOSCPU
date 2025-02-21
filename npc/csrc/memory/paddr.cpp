@@ -1,12 +1,9 @@
 #include "memory/paddr.h"
 #include "emulator/simulate.h"
+#include "device/mmio.h"
 
 void mem_read_trace(paddr_t addr, int len);
 void mem_write_trace(paddr_t addr, int len, word_t data);
-
-static inline bool in_pmem(paddr_t addr) {
-  return addr - CONFIG_MBASE < CONFIG_MSIZE;
-}
 
 static word_t pmem_read(paddr_t addr, int len) {
   word_t ret = host_read(guest_to_host(addr), len);
@@ -27,7 +24,7 @@ word_t paddr_read(paddr_t addr, int len) {
   if (likely(in_pmem(addr))) {
     return pmem_read(addr, len);
   }
-  // IFDEF(CONFIG_DEVICE, return mmio_read(addr, len));
+  IFONE(CONFIG_DEVICE, return mmio_read(addr, len));
   out_of_bound(addr);
   return 0;
 }
@@ -37,6 +34,6 @@ void paddr_write(paddr_t addr, int len, word_t data) {
   if (likely(in_pmem(addr))) {
     pmem_write(addr, len, data); return;
   }
-  // IFDEF(CONFIG_DEVICE, mmio_write(addr, len, data); return);
+  IFONE(CONFIG_DEVICE, mmio_write(addr, len, data); return);
   out_of_bound(addr);
 }

@@ -6,6 +6,7 @@ void parse_elf(const char *elf_file);
 void log_init(const char *log_file);
 void mem_init();
 void sdb_init();
+void device_init();
 
 static char *elf_file = NULL;
 static char *log_file = NULL;
@@ -17,6 +18,7 @@ void welcome() {
   Log("ITrace: %s", MUXONE(CONFIG_ITRACE, ANSI_FMT("ON", ANSI_FG_GREEN), ANSI_FMT("OFF", ANSI_FG_RED)));
   Log("MTrace: %s", MUXONE(CONFIG_MTRACE, ANSI_FMT("ON", ANSI_FG_GREEN), ANSI_FMT("OFF", ANSI_FG_RED)));
   Log("FTrace: %s", MUXONE(CONFIG_FTRACE, ANSI_FMT("ON", ANSI_FG_GREEN), ANSI_FMT("OFF", ANSI_FG_RED)));
+  Log("DTrace: %s", MUXONE(CONFIG_DTRACE, ANSI_FMT("ON", ANSI_FG_GREEN), ANSI_FMT("OFF", ANSI_FG_RED)));
   Log("Difftest: %s", MUXONE(CONFIG_DIFFTEST, ANSI_FMT("ON", ANSI_FG_GREEN), ANSI_FMT("OFF", ANSI_FG_RED)));
 
   Log("Build time: %s, %s", __TIME__, __DATE__);
@@ -96,6 +98,8 @@ void monitor_init(int argc, char *argv[]) {
 
   /* Initialize differential testing. */
   IFONE(CONFIG_DIFFTEST, difftest_init(diff_so_file, img_size, difftest_port));
+
+  IFONE(CONFIG_DEVICE, device_init());
 
   /* Display welcome message. */
   welcome();

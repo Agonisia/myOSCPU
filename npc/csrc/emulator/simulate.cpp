@@ -5,19 +5,26 @@
 VCore* dut = nullptr;
 VerilatedFstC* tfp = nullptr;
 
-uint32_t sim_time = 0;
-uint64_t guest_inst = 0;
 CORE_state core = {};
+uint64_t sim_count = 0;
+uint64_t guest_inst = 0;
+static uint64_t sim_time = 0; // unit: us
 
 extern "C" void disasm_init(const char *triple);
-void difftest_skip_ref();
+void device_update();
 void difftest_step(vaddr_t pc);
 void inst_trace(CORE_state core);
 void print_ring_buffer();
 
 static void statistic() {
   #define NUMBERIC_FMT MUXDEF(CONFIG_TARGET_AM, "%", "%'") PRIu64
+  Log("host time spent = " NUMBERIC_FMT " us", sim_time);
   Log("total guest instructions = " NUMBERIC_FMT, guest_inst);
+  if (sim_time > 0) {
+    Log("simulation frequency = " NUMBERIC_FMT " inst/s", guest_inst * 1000000 / sim_time);
+  } else {
+    Log("Finish running in less than 1 us and can not calculate the simulation frequency");
+  }
 }
 
 void assert_fail_msg() {
@@ -29,8 +36,8 @@ void assert_fail_msg() {
 void single_step() {
   dut->clock ^= 1;
   dut->eval();
-  tfp->dump(sim_time);
-  sim_time++;
+  tfp->dump(sim_count);
+  sim_count++;
 }
 
 void one_cycle() {
@@ -64,15 +71,19 @@ void sim_exec(uint64_t n) {
       sim_state.state = SIM_RUNNING;
   }
 
+  uint64_t timer_start = get_time();
+
   for (;n > 0; n --) {
     exec_once();
     guest_inst++;
-    if (sim_time > SIM_MAX_LIMIT ||
-        (sim_state.state == SIM_END) || 
-        (sim_state.state == SIM_ABORT)) {
+    if (sim_state.state != SIM_RUNNING) {
       break;
-    } 
+    }
+    IFONE(CONFIG_DEVICE, device_update()); 
   }
+
+  uint64_t timer_end = get_time();
+  sim_time += timer_end - timer_start;
 
   switch (sim_state.state) {
     case SIM_RUNNING:

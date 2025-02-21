@@ -29,7 +29,7 @@ INC_FLAGS = $(addprefix -I, $(INC_PATH))
 # compiler flags
 CXX_FLAGS += $(INC_FLAGS) -DTOP_NAME="\"V$(TOP_NAME)\""
 CXX_FLAGS += $(shell llvm-config --cxxflags) -fPIE
-LD_FLAGS += $(shell llvm-config --libs) -lreadline
+LD_FLAGS += $(shell llvm-config --libs) -lreadline -lSDL2
 
 # dynamic library path
 DIFF_REF_SO = $(NEMU_HOME)/build/riscv32-nemu-interpreter-so
