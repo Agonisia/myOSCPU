@@ -1,0 +1,68 @@
+---
+config:
+  theme: forest
+  look: handDrawn
+---
+flowchart LR
+ subgraph InstFetchUnit["InstFetchUnit"]
+        OutputDisplayHandler["OutputDisplayHandler"]
+        ProgramCounter["ProgramCounter"]
+        MemReadHandler["MemReadHandler"]
+  end
+ subgraph InstDecodeUnit["InstDecodeUnit"]
+        MappingTable["MappingTable"]
+  end
+ subgraph ExecuteUnit["ExecuteUnit"]
+        ALU["ALU"]
+        MemAccessHandler["MemAccessHandler"]
+  end
+ subgraph Registers["Registers"]
+        GeneralPurposeRegs["GeneralPurposeRegs"]
+        RegDisplaylHandler["RegDisplaylHandler"]
+  end
+ subgraph WriteBackUnit["WriteBackUnit"]
+  end
+ subgraph EBreakHandler["EBreakHandler"]
+  end
+ subgraph FuncTraceHandler["FuncTraceHandler"]
+  end
+ subgraph InstInvalidHandler["InstInvalidHandler"]
+  end
+ subgraph Core["Core"]
+        InstFetchUnit
+        InstDecodeUnit
+        ExecuteUnit
+        Registers
+        WriteBackUnit
+        EBreakHandler
+        FuncTraceHandler
+        InstInvalidHandler
+  end
+ subgraph Verilator["Verilator"]
+        Memory["Memory"]
+  end
+    InstFetchUnit --> InstDecodeUnit & ExecuteUnit & WriteBackUnit & EBreakHandler & FuncTraceHandler
+    OutputDisplayHandler --> Verilator
+    MemReadHandler <--> Memory
+    InstDecodeUnit --> Registers & ExecuteUnit & FuncTraceHandler
+    ExecuteUnit --> WriteBackUnit & InstFetchUnit & InstInvalidHandler & FuncTraceHandler
+    MemAccessHandler <--> Memory
+    Registers --> ExecuteUnit & FuncTraceHandler
+    WriteBackUnit --> Registers
+    RegDisplaylHandler --> Verilator
+    InstInvalidHandler --> Verilator
+    FuncTraceHandler --> Verilator
+    EBreakHandler --> Verilator
+    style MemReadHandler fill:#FFD600
+    style MemAccessHandler fill:#FFD600
+    style RegDisplaylHandler fill:#FFE0B2
+    style InstFetchUnit fill:#C8E6C9
+    style InstDecodeUnit fill:#E1BEE7
+    style ExecuteUnit fill:#BBDEFB
+    style Registers fill:#FFF9C4
+    style WriteBackUnit fill:#FFCDD2
+    style EBreakHandler fill:#FFE0B2
+    style FuncTraceHandler fill:#FFE0B2
+    style InstInvalidHandler fill:#FFE0B2
+    style Verilator fill:#FFFFFF,stroke:#2962FF
+    style Core fill:#FFFFFF,stroke:#FF6D00

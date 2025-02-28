@@ -36,11 +36,9 @@ static struct rule {
   const char *regex;
   int token_type;
 } rules[] = {
-
   /* Add more rules.
    * Pay attention to the precedence level of different rules.
    */
-
   {" +", TK_NOTYPE},          // spaces
   {"\\+", '+'},               // plus
   {"\\-", '-'},               // minus
@@ -282,8 +280,8 @@ int find_main_operator(int p, int q) {
     } else if (tokens[i].type == TK_RB) {
       parentheses_layer--;
     } else if (parentheses_layer == 0) {
-      // make sure filter and ignore minus sign and pointer signwhile judging main op
-      if (tokens[i].type == TK_NEGATIVE || tokens[i].type == TK_POINTER) {
+      // make sure filter and ignore minus sign while judging main op
+      if (tokens[i].type == TK_NEGATIVE) {
         continue;
       }
 
@@ -361,7 +359,7 @@ word_t eval(int p, int q) {
         switch (tokens[op].type) {
           case TK_NEGATIVE: return -val;
           case TK_POSITIVE: return val;
-          case TK_POINTER: return vaddr_read(val, 4);
+          case TK_POINTER:  return vaddr_read(val, 4);
           default: panic("Unknown unary operator type: %d", tokens[op].type);
         }
       } else {
@@ -382,7 +380,7 @@ word_t eval(int p, int q) {
 
         if (tokens[op].type == '/' && val2 == 0) {
         // devide zero detection 1
-        panic("Deivsion by zero detected");
+        panic("Division by zero detected");
         }
 
         switch (tokens[op].type) {

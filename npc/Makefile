@@ -1,6 +1,7 @@
 TOP_NAME = Core
 INC_PATH ?=
 GTKWAVE = gtkwave
+export CLK_FREQ_MHZ ?= 500
 
 VERILATOR = verilator
 VERILATOR_FLAGS += -MMD --build -cc 
@@ -15,6 +16,13 @@ CHISEL_DIR = ./chisel/verilog
 VSRC_DIR = ./vsrc
 CSRC_DIR = ./csrc
 SYNC_MARKER = $(BUILD_DIR)/.chisel_sync
+
+RESULT_DIR = $(NPC_HOME)/result/$(TOP_NAME)-$(CLK_FREQ_MHZ)MHz
+SCRIPT_DIR = $(NPC_HOME)/scripts
+NETLIST_SYN_V   = $(RESULT_DIR)/$(TOP_NAME).netlist.syn.v
+NETLIST_FIXED_V = $(RESULT_DIR)/$(TOP_NAME).netlist.fixed.v
+TIMING_RPT = $(RESULT_DIR)/$(TOP_NAME).rpt
+SDC_FILE ?= $(SCRIPT_DIR)/$(TOP_NAME).sdc
 
 $(shell mkdir -p $(BUILD_DIR))
 
@@ -81,6 +89,22 @@ mill:
 fst:
 	$(GTKWAVE) sim_record.fst
 
-.PHONY: sync all sim clean sbt mill fst
+# synthesis design
+syn: $(NETLIST_SYN_V)
+$(NETLIST_SYN_V): $(VSRC) $(SCRIPT_DIR)/yosys.tcl
+	mkdir -p $(@D)
+	echo tcl $(SCRIPT_DIR)/yosys.tcl $(TOP_NAME) \"$(VSRC)\" $@ | yosys -l $(@D)/yosys.log -s -
+
+# fix fanout violation in design
+fix-fanout: $(NETLIST_FIXED_V)
+$(NETLIST_FIXED_V): $(SCRIPT_DIR)/fix-fanout.tcl $(SDC_FILE) $(NETLIST_SYN_V)
+	./bin/iEDA -script $^ $(TOP_NAME) $@ 2>&1 | tee $(RESULT_DIR)/fix-fanout.log
+
+# static timing analysis design
+sta: $(TIMING_RPT)
+$(TIMING_RPT): $(SCRIPT_DIR)/sta.tcl $(SDC_FILE) $(NETLIST_FIXED_V)
+	./bin/iEDA -script $^ $(TOP_NAME) 2>&1 | tee $(RESULT_DIR)/sta.log
+
+.PHONY: sync all sim clean sbt mill fst syn fix-fanout sta
 
 include ../Makefile

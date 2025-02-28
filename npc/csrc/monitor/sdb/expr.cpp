@@ -5,11 +5,10 @@
 /* We use the POSIX regex functions to process regular expressions.
  * Type 'man regex' for more information about POSIX regex functions.
  */
-
 enum {
   TK_NOTYPE = 256, TK_EQ,
   TK_NUMS, TK_LB, TK_RB,
-  TK_NEGATIVE, TK_POINTER, TK_POSITIVE,
+  TK_NEGATIVE, TK_POINTER,
   TK_AND, TK_OR, TK_NOT,
   TK_NOTEQ, TK_REG, TK_HEX,
   TK_LE, TK_GE, TK_LT, TK_GT,
@@ -20,12 +19,17 @@ static struct rule {
   const char *regex;
   int token_type;
 } rules[] = {
-
   /* Add more rules.
    * Pay attention to the precedence level of different rules.
    */
-
   {" +", TK_NOTYPE},          // spaces
+  {"==", TK_EQ},              // equal
+  {"!=", TK_NOTEQ},           // not equal
+  {"<=", TK_LE},              // less or equal
+  {">=", TK_GE},              // greater or equal
+  {"\\&\\&", TK_AND},         // and 
+  {"\\|\\|", TK_OR},          // or
+  {"!", TK_NOT},              // not   
   {"\\+", '+'},               // plus
   {"\\-", '-'},               // minus
   {"\\*", '*'},               // multiply
@@ -34,13 +38,6 @@ static struct rule {
   {"[0-9]+", TK_NUMS},        // numbers  
   {"\\(", TK_LB},             // left bracket
   {"\\)", TK_RB},             // right bracket
-  {"==", TK_EQ},              // equal
-  {"!=", TK_NOTEQ},           // not equal
-  {"\\&\\&", TK_AND},         // and 
-  {"\\|\\|", TK_OR},          // or
-  {"!", TK_NOT},              // not
-  {"<=", TK_LE},              // less or equal
-  {">=", TK_GE},              // greater or equal 
   {"<", TK_LT},               // less than 
   {">", TK_GT},               // greater than 
   {"\\$\\w+", TK_REG},        // reg name
@@ -72,9 +69,9 @@ typedef struct token {
   char str[32];
 } Token;
 
-// change here, from 32 to 64
-static Token tokens[64] __attribute__((used)) = {};
+static int paren_pairs[64];
 static int nr_token __attribute__((used))  = 0;
+static Token tokens[64] __attribute__((used)) = {}; // change here, from 32 to 64
 
 typedef enum {
   PAREN_ENCLOSED,     // whole expr enclosed by brackets, brackets inside match exactly
@@ -82,7 +79,7 @@ typedef enum {
   PAREN_NOT_MATCHED   // not enclosed and unmatched, throw it away
 } Paren_Status;
 
-/* parse the input string into an array of tokens, handling negative signs, pointer symbols, and divide-by-zero detection */
+/* parse the input string into an array of tokens, handling negative signs, pointer symbols */
 static bool make_token(char *e) {
   int position = 0;
   int i;
@@ -125,13 +122,6 @@ static bool make_token(char *e) {
           strncpy(tokens[nr_token].str, substr_start, substr_len);   // record str into tokens
           tokens[nr_token].str[substr_len] = '\0';   // add stop sign
           
-          // devide zero detection 2
-          if (nr_token > 0 && tokens[nr_token - 1].type == '/' && 
-              tokens[nr_token].type == TK_NUMS && 
-              atoi(tokens[nr_token].str) == 0) {
-            panic("Attempted division by zero");
-          }
-
           // check if - is negative sign or minus sign
           if (tokens[nr_token].type == '-') {
             if (nr_token == 0 ||
@@ -141,9 +131,6 @@ static bool make_token(char *e) {
                 tokens[nr_token - 1].type == '+' ||
                 tokens[nr_token - 1].type == '*' ||
                 tokens[nr_token - 1].type == '/') {
-                  tokens[nr_token].type = TK_NEGATIVE;
-                  Log("A negative sign detected");
-
                   // count consecutive negative signs
                   neg_count++;
                   while (e[position] == '-') {
@@ -153,11 +140,10 @@ static bool make_token(char *e) {
 
                   // determine final type based on the count
                   if (neg_count % 2 == 0) {
-                    tokens[nr_token].type = TK_POSITIVE;
-                    Log("Even number of negative signs detected, treating as positive");
+                    continue;
                   } else {
                     tokens[nr_token].type = TK_NEGATIVE;
-                    Log("Odd number of negative signs detected, treating as negative");
+                    Log("A negative sign detected");
                   }
 
                   neg_count = 0; // reset the counter
@@ -194,6 +180,26 @@ static bool make_token(char *e) {
     }
   }
 
+  // pre-check if parentheses are matched
+  int stack[64], top = 0;
+  for (int i = 0; i < nr_token; i++) {
+    if (tokens[i].type == TK_LB) {
+      stack[top++] = i;
+    } else if (tokens[i].type == TK_RB) {
+      if (top == 0) {
+        printf("Mismatched parentheses\n");
+        return false;
+      }
+      int left = stack[--top];
+      paren_pairs[left] = i;
+      paren_pairs[i] = left;
+    }
+  }
+  if (top != 0) {
+    printf("Mismatched parentheses\n");
+    return false;
+  }
+
   return true;
 }
 
@@ -202,27 +208,7 @@ Paren_Status check_parentheses(int p, int q) {
   if (tokens[p].type != TK_LB || tokens[q].type != TK_RB) {
     return PAREN_NOT_ENCLOSED;
   }
-  
-  // check if every bracket inside could match
-  int layer = 0;
-  for (int i = p; i <= q; i++) {
-    if (tokens[i].type == TK_LB) {
-      layer++;
-    } else if (tokens[i].type == TK_RB) {
-      layer--;
-      if (layer == 0 && i != q) {
-        // case1: the outer parentheses do not enclose the whole expr
-        return PAREN_NOT_ENCLOSED;
-      }
-      if (layer < 0) {
-        // case2: parentheses not paired
-        return PAREN_NOT_MATCHED;
-      }
-    }
-  }
-  
-  return layer == 0 ? PAREN_ENCLOSED : PAREN_NOT_MATCHED;
-
+  return (paren_pairs[p] == q) ? PAREN_ENCLOSED : PAREN_NOT_ENCLOSED;
 }
 
 /* return the priority according to each operatory's weight */
@@ -254,33 +240,44 @@ int get_operator_priority(int token_type) {
   }
 }
 
+bool is_operator(int type) {
+  bool result = (type == '+' || type == '-' || type == '*' || type == '/' ||
+          type == TK_EQ || type == TK_NOTEQ || type == TK_AND || 
+          type == TK_OR || type == TK_LT || type == TK_LE || 
+          type == TK_GT || type == TK_GE || type == TK_NOT ||
+          type == TK_NEGATIVE || type == TK_POINTER);
+  return result;
+}
+
 /* return the location of main operator, it cannot inside the brackets */
 int find_main_operator(int p, int q) {
   int op = -1;
   int min_priority = INT_MAX;
-  int parentheses_layer = 0;
 
-  for (int i = p; i <= q; i++) {
+  for (int i = p; i <= q;) {
     if (tokens[i].type == TK_LB) {
-      parentheses_layer++;
-    } else if (tokens[i].type == TK_RB) {
-      parentheses_layer--;
-    } else if (parentheses_layer == 0) {
-      // make sure filter and ignore minus sign and pointer signwhile judging main op
-      if (tokens[i].type == TK_NEGATIVE || tokens[i].type == TK_POINTER) {
-        continue;
-      }
+      i = paren_pairs[i] + 1; // skip the enclosed part
+      continue;
+    } 
 
-      int priority = get_operator_priority(tokens[i].type);
-
-      if (priority <= min_priority) {
-        min_priority = priority;
-        op = i;
-      }
+    if (!is_operator(tokens[i].type)) {
+      i++;
+      continue;
     }
+
+    int priority = get_operator_priority(tokens[i].type);
+    if (priority < min_priority) {
+      min_priority = priority;
+      op = i;
+    }
+    i++;
   }
 
   return op;
+}
+
+bool is_unary_operator(int type) {
+  return (type == TK_NEGATIVE || type == TK_POINTER || type == TK_NOT);
 }
 
 #define STACK_SIZE 1000
@@ -288,120 +285,130 @@ word_t vaddr_read(vaddr_t addr, int len);
 
 typedef struct {
   int p, q;
+  int stage; // 0: initial stage, 1: left operand processed, 2: right operand processed
+  word_t left_val;
+  int op;
 } StackFrame;
 
 /* evaluate expression value recursively, dealing divide-by-zero detection */
 word_t eval(int p, int q) {
   StackFrame stack[STACK_SIZE];
   int sp = 0; // stack pointer
+  word_t result = 0;
+  bool error = false;
   
-  stack[sp++] = (StackFrame) {
-    p, q
-  };
+  stack[sp++] = (StackFrame){p, q, 0, 0, -1};
 
-  while (sp > 0) {
-    StackFrame frame = stack[--sp];
-    p = frame.p;
-    q = frame.q;
+  while (sp > 0 && !error) {
+    StackFrame *frame = &stack[sp-1];
 
-    if (p > q) {
-      /* Bad expression */
-      panic("Bad expression");
-      return 0;
-    } else if (p == q) {
-      /* Single token.
-      * For now this token should be a number.
-      * Return the value of the number.
-      */
-      if (tokens[p].type == TK_NUMS) {
-        return (word_t)atoi(tokens[p].str);
-      } else if (tokens[p].type == TK_HEX) {
-        return strtol(tokens[p].str, NULL, 16);
-      } else if (tokens[p].type == TK_REG) {
-        bool suc = false;
-        word_t val = reg_str2val(tokens[p].str, &suc);
-        if (suc == true) {
-          return val;
-        } else {
-          panic("Invalid register");
-        }
-      }
-    } else {
-      Paren_Status status = check_parentheses(p, q);
-      if (status == PAREN_ENCLOSED) {
-        /* The expression is surrounded by a matched pair of parentheses.
-        *  If that is the case, just throw away the parentheses.
-        */
-        return eval(p + 1, q - 1); 
-      } else if (status == PAREN_NOT_MATCHED) {
-        panic("Parentheses not matched");
-      }
-      
-      /* for not enclosed type, keep going */
-      int op = find_main_operator(p, q);
-      if (op == p) {
-        // unary operator
-        word_t val = eval(op + 1, q);
-        switch (tokens[op].type) {
-          case TK_NEGATIVE: return -val;
-          case TK_POSITIVE: return val;
-          case TK_POINTER: return vaddr_read(val, 4);
-          default: panic("Unknown unary operator type: %d", tokens[op].type);
-        }
-      } else {
-        if (tokens[p].type == TK_NEGATIVE && p + 1 <= q && tokens[p + 1].type == TK_NUMS) {
-          return (word_t)-atoi(tokens[p + 1].str); 
-        } else if (tokens[p].type == TK_POSITIVE && p + 1 <= q && tokens[p + 1].type == TK_NUMS) {
-          return (word_t)atoi(tokens[p + 1].str); 
-        }
-
-        word_t val1, val2;
-
-        stack[sp++] = (StackFrame){op + 1, q};
-        stack[sp++] = (StackFrame){p, op - 1};
-            
+    if (frame->stage == 0) {
+      // initial stage, check if the expression is valid
+      if (frame->p > frame->q) {
+        error = true;
         sp--;
-        val1 = eval(p, op - 1);
-        val2 = eval(op + 1, q);
-
-        if (tokens[op].type == '/' && val2 == 0) {
-        // devide zero detection 1
-        panic("Deivsion by zero detected");
-        }
-
-        switch (tokens[op].type) {
-          case '+': return val1 + val2;
-          case '-': return val1 - val2;
-          case '*': return val1 * val2;
-          case '/': return (sword_t)val1 / (sword_t)val2; // test samples also runs signed arithmetic and converts to uint32_t
-          case TK_EQ: return val1 == val2;
-          case TK_NOTEQ: return val1 != val2;
-          case TK_LT: return val1 < val2;
-          case TK_LE: return val1 <= val2;
-          case TK_GT: return val1 > val2;
-          case TK_GE: return val1 >= val2;
-          case TK_AND: return val1 && val2;
-          case TK_OR: return val1 || val2;
-          default: panic("Unknown operator type: %d", tokens[op].type);
-        }
+        continue;
       }
+
+      Paren_Status status = check_parentheses(frame->p, frame->q);
+      if (status == PAREN_ENCLOSED) {
+        // handle enclosed expression
+        frame->p++;
+        frame->q--;
+        continue;
+      }
+
+      int op = find_main_operator(frame->p, frame->q);
+      if (op == -1) {
+        /* Single token.
+        * For now this token should be a number.
+        * Return the value of the number.
+        */
+        if (tokens[frame->p].type == TK_NUMS) {
+          result = atoi(tokens[frame->p].str);
+        } else if (tokens[frame->p].type == TK_HEX) {
+          result = strtol(tokens[frame->p].str, NULL, 16);
+        } else if (tokens[frame->p].type == TK_REG) {
+          bool suc = false;
+          word_t val = reg_str2val(tokens[frame->p].str, &suc);
+          if (suc == true) {
+            result = val;
+          } else {
+            panic("Invalid register");
+          }
+        }
+        sp--;
+        continue;
+      }
+
+      if (is_unary_operator(tokens[op].type)) {
+        // handel unary operator, stack the right operand
+        frame->op = op;
+        stack[sp++] = (StackFrame){op+1, frame->q, 0, 0, -1};
+        frame->stage = 1;
+      } else {
+        // handle binary operator, deal with left operand first
+        frame->op = op;
+        stack[sp++] = (StackFrame){frame->p, op-1, 0, 0, -1};
+        frame->stage = 2;
+      }
+    } else if (frame->stage == 1) {
+      // unary operator
+      word_t val = result;
+      switch (tokens[frame->op].type) {
+        case TK_NEGATIVE: result = -val; break;
+        case TK_POINTER:  result = vaddr_read(val, 4); break;
+        case TK_NOT:      result = !val; break;
+        default: panic("Unknown unary operator type: %d", tokens[frame->op].type);
+      }
+      sp--;
+    } else if (frame->stage == 2) {
+      // binary operator, left operand processed, deal with right operand
+      frame->left_val = result;
+      stack[sp++] = (StackFrame){frame->op+1, frame->q, 0, 0, -1};
+      frame->stage = 3;
+    } else if (frame->stage == 3) {
+      // binary operator, right operand processed, calculate the result
+      word_t right_val = result;
+      if (tokens[frame->op].type == '/' && right_val == 0) {
+        error = true;
+        sp--;
+        Log("Division by zero detected"); 
+        break;
+      }
+      switch (tokens[frame->op].type) {
+        case '+': result = frame->left_val + right_val; break;
+        case '-': result = frame->left_val - right_val; break;
+        case '*': result = frame->left_val * right_val; break;
+        case '/': result = (sword_t)frame->left_val / (sword_t)right_val; break;
+        case TK_EQ: result = frame->left_val == right_val; break;
+        case TK_NOTEQ: result = frame->left_val != right_val; break;
+        case TK_LT: result = frame->left_val < right_val; break;
+        case TK_LE: result = frame->left_val <= right_val; break;
+        case TK_GT: result = frame->left_val > right_val; break;
+        case TK_GE: result = frame->left_val >= right_val; break;
+        case TK_AND: result = frame->left_val && right_val; break;
+        case TK_OR: result = frame->left_val || right_val; break;
+        default: panic("Unknown operator type: %d", tokens[frame->op].type);
+      }
+      sp--;
     }
   }
-  return 0;
+
+  if (error) {
+    panic("Evaluation error");
+  }
+  return result;
 }
 
 /* parse and evaluate the value of an expression */
 word_t expr(char *e, bool *success) {
+  *success = false;
   if (!make_token(e)) {
-    *success = false;
+    printf("Expression parse failed at: %s\n", e);
     return 0;
   }
 
-  /* Insert codes to evaluate the expression. */
-  // backup option to detect devision by zero here
-
   *success = true;
   return eval(0, nr_token - 1);
-
-  return 0;
 }

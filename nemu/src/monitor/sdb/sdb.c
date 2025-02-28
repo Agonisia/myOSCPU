@@ -115,16 +115,17 @@ static int cmd_x(char *args) {
   }
 
   bool success;
-  word_t start_address = 0x80000000;
+  vaddr_t start_address = 0x80000000;
   start_address = expr(remain, &success);
   if (!success) {
     printf("Invalid expression: %s\n", token);
     return 0;
   }
 
-  for (word_t i = 0; i < N; i++) {
-    word_t address = start_address + i * 4;
-    printf("%x\n", vaddr_read(address, 4));
+  for (int i = 0; i < N; i++) {
+    vaddr_t address = start_address + i * 4;
+    word_t data = vaddr_read(address, 4);
+    printf("0x%x: 0x%x (%u)\n", address, data, data);
   }
   return 0;
 }
@@ -140,7 +141,7 @@ static int cmd_p(char *args) {
   word_t value = expr(args, &success);
 
   if (success) {
-    printf("Result: %u (0x%x)\n", value, value);
+    printf("Result: 0x%x (%u)\n", value, value);
   } else {
     printf("Invaild expression: %s\n", args);
   }

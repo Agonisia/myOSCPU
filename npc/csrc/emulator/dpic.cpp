@@ -78,16 +78,7 @@ extern "C" int mem_read(paddr_t addr) { // load type
     return (uint32_t)(get_time() >> 32);
   } 
 
-  // if (addr == CONFIG_VGA_ADDR) { // vga
-  //   IFONE(CONFIG_DIFFTEST, difftest_skip_ref());
-  //   printf("vga sync: %d\n", vgactl_port_base[1]);
-  //   return;
-  // } else if (addr == CONFIG_VGA_ADDR + 4) {
-  //   IFONE(CONFIG_DIFFTEST, difftest_skip_ref());
-  //   return vgactl_port_base[1];
-  // }
-
-  word_t data = paddr_read(addr_aligned, 4);
+  word_t data = vaddr_read(addr_aligned, 4);
 
   if (offset) { // if not aligned
     return (data >> (offset * 8)) & 0xFFFFFFFF; // get the byte based on the offset
@@ -111,13 +102,6 @@ extern "C" void mem_write(paddr_t addr, uint8_t mask, word_t data) { // store ty
     return;
   } 
 
-  // if (addr == CONFIG_VGA_ADDR + 4) { // vga
-  //   IFONE(CONFIG_DIFFTEST, difftest_skip_ref());
-  //   printf("vga sync: %d\n", data);
-  //   vgactl_port_base[1] = data;
-  //   return;
-  // }
-
   word_t data_origin = paddr_read(addr_aligned, 4);
   word_t mask_shift = 0;
   word_t data_shift = 0;
@@ -131,7 +115,7 @@ extern "C" void mem_write(paddr_t addr, uint8_t mask, word_t data) { // store ty
   }
 
   word_t data_final = (data_origin & ~mask_shift) | (data_shift & mask_shift);
-  paddr_write(addr_aligned, 4, data_final);
+  vaddr_write(addr_aligned, 4, data_final);
 }
 
 

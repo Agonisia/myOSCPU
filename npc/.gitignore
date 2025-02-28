@@ -10,4 +10,8 @@
 !*.cpp
 !.gitignore
 !README.md
+!scripts/
+!scripts/**
+!graph/
+!graph/**
 build/
