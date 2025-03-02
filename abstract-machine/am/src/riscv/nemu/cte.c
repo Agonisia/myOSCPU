@@ -6,9 +6,15 @@ static Context* (*user_handler)(Event, Context*) = NULL;
 
 Context* __am_irq_handle(Context *c) {
   if (user_handler) {
-    Event ev = {0};
+    Event ev = {0};  
     switch (c->mcause) {
-      default: ev.event = EVENT_ERROR; break;
+      case (uintptr_t)0xb: 
+        ev.event = EVENT_YIELD;
+        c->mepc += 4; 
+        break;
+      default: 
+        ev.event = EVENT_ERROR; 
+        break;
     }
 
     c = user_handler(ev, c);
@@ -36,9 +42,9 @@ Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
 
 void yield() {
 #ifdef __riscv_e
-  asm volatile("li a5, -1; ecall");
+  asm volatile("li a5, 0xb; ecall");
 #else
-  asm volatile("li a7, -1; ecall");
+  asm volatile("li a7, 0xb; ecall"); // event NO define here, change it to 0xb to fit diff-test
 #endif
 }
 

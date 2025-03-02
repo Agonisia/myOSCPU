@@ -8,8 +8,14 @@
 #endif
 
 struct Context {
-  // TODO: fix the order of these members to match trap.S
-  uintptr_t mepc, mcause, gpr[NR_REGS], mstatus;
+  /* abstract-machine/am/src/riscv/nemu/trap.S
+  *  from 45 Ln to 49 Ln
+  *  MAP(REGS, PUSH)
+  *  csrr t0, mcause
+  *  csrr t1, mstatus
+  *  csrr t2, mepc
+  */
+  uintptr_t gpr[NR_REGS], mcause, mstatus, mepc;
   void *pdir;
 };
 

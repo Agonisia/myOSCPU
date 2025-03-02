@@ -225,3 +225,11 @@ void func_ret_trace(vaddr_t addr_curr) {
   depth--; // sub depth before ret printing 
   print_trace(addr_curr, func_index, "ret");
 }
+
+void exception_trace() {
+  printf("\necall detected, have fun\n");
+  printf("csr[mstatus] = 0x%x\n", cpu.csr[mstatus]);
+  printf("csr[mtvec] = 0x%x\n", cpu.csr[mtvec]);
+  printf("csr[mepc] = 0x%x\n", cpu.csr[mepc]);
+  printf("csr[mcause] = 0x%x\n", cpu.csr[mcause]);
+}

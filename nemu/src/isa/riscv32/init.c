@@ -32,6 +32,9 @@ static void restart() {
 
   /* The zero register is always 0. */
   cpu.gpr[0] = 0;
+
+  /* Set the initial value of mstatus. */
+  cpu.csr[mstatus] = 0x1800; // mstatus.MIE = 1 (enable interrupt at M-mode)
 }
 
 void init_isa() {

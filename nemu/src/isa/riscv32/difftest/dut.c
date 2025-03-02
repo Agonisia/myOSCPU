@@ -22,6 +22,15 @@ bool isa_difftest_checkregs(CPU_state *ref_r, vaddr_t pc) {
 
   for (int i = 0; i < reg_num; i++) {
     if (cpu.gpr[i] != ref_r->gpr[i]) {
+      Log("mismatch gpr[%d]: 0x%x(ref) != 0x%x(dut)\n", i, ref_r->gpr[i], cpu.gpr[i]);
+      pc = ref_r->pc;
+      return false;
+    }
+  }
+
+  for (int i = 0; i < csr_num; i++) {
+    if (cpu.csr[i] != ref_r->csr[i]) {
+      Log("mismatch csr[%d]: 0x%x(ref) != 0x%x(dut)\n", i, ref_r->csr[i], cpu.csr[i]);
       pc = ref_r->pc;
       return false;
     }

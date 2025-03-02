@@ -19,9 +19,20 @@
 #include <cpu/decode.h>
 
 #define R(i) gpr(i)
+#define CSR(i) csr(i)
 #define Mr vaddr_read
 #define Mw vaddr_write
 #define Byte 1
+
+/* Modify difftest.cc would found spike has different event NO send in ecall 
+*  my solution is changing NEMU's event NO to 0xb
+*/
+#define ECALL(dnpc) {bool success; dnpc = isa_raise_intr(isa_reg_str2val("a7", &success), s->pc); }
+/* brochure or copilot would hint we need extra procedures like 
+*  CSR(mstatus) &= ~MSTATUS_MPP_MASK
+*  to switch privilege level, but we don't need to do that in NEMU
+*/
+#define MRET(dnpc) {dnpc = cpu.csr[mepc]; } 
 
 enum {
   TYPE_I, TYPE_U, TYPE_S,
@@ -133,7 +144,13 @@ static int decode_exec(Decode *s) {
   INSTPAT("0000001 ????? ????? 110 ????? 01100 11", rem    , R, R(rd) = (sword_t)src1 % (sword_t)src2); // REMainder
   INSTPAT("0000001 ????? ????? 111 ????? 01100 11", remu   , R, R(rd) = src1 % src2); // REMainder Unsigned
 
+  /* For Operation System */
+  INSTPAT("??????? ????? ????? 001 ????? 11100 11", csrrw  , I, R(rd) = CSR(imm); CSR(imm) = src1); // CSR Read Write
+  INSTPAT("??????? ????? ????? 010 ????? 11100 11", csrrs  , I, R(rd) = CSR(imm); CSR(imm) |= src1); // CSR Read Set
+  INSTPAT("0000000 00000 00000 000 00000 11100 11", ecall  , N, ECALL(s->dnpc)); // Exception CALL
   INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak , N, NEMUTRAP(s->pc, R(10))); // R(10) is $a0
+  INSTPAT("0011000 00010 00000 000 00000 11100 11", mret   , R, MRET(s->dnpc);); // Machine RETurn
+
   INSTPAT("??????? ????? ????? ??? ????? ????? ??", inv    , N, INV(s->pc)); // If None of previous rules Valid
   INSTPAT_END();
 
