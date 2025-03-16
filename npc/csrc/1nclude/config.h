@@ -13,10 +13,10 @@
 #define CONFIG_LOG 1
 
 // difftest
-#define CONFIG_DIFFTEST 0
+#define CONFIG_DIFFTEST 1
 
 // tracer
-#define CONFIG_ITRACE 1
+#define CONFIG_ITRACE 0
 #define CONFIG_ITRACE_START 0
 #define CONFIG_ITRACE_LIMIT 10000
 
@@ -25,6 +25,8 @@
 #define CONFIG_FTRACE 0
 
 #define CONFIG_DTRACE 0
+
+#define CONFIG_ETRACE 1
 
 // device 
 #define CONFIG_DEVICE 1 

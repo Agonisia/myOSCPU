@@ -4,6 +4,7 @@
 
 void func_call_trace(vaddr_t addr_curr, vaddr_t addr_func);
 void func_ret_trace(vaddr_t addr_curr);
+void exception_trace();
 
 extern "C" void ebreak_exit() {
   printf("Simulation terminated by ebreak.\n");
@@ -118,21 +119,33 @@ extern "C" void mem_write(paddr_t addr, uint8_t mask, word_t data) { // store ty
   vaddr_write(addr_aligned, 4, data_final);
 }
 
+extern "C" void exception_display() {
+  IFONE(CONFIG_ETRACE, exception_trace());
+}
 
-extern "C" void regfile_update(
-  int regfile_0, int regfile_1, int regfile_2, int regfile_3,
-  int regfile_4, int regfile_5, int regfile_6, int regfile_7,
-  int regfile_8, int regfile_9, int regfile_10, int regfile_11,
-  int regfile_12, int regfile_13, int regfile_14, int regfile_15
+extern "C" void gprfile_update(
+  int gprfile_0, int gprfile_1, int gprfile_2, int gprfile_3,
+  int gprfile_4, int gprfile_5, int gprfile_6, int gprfile_7,
+  int gprfile_8, int gprfile_9, int gprfile_10, int gprfile_11,
+  int gprfile_12, int gprfile_13, int gprfile_14, int gprfile_15
 ) {
-  int regfile[16] = {
-    regfile_0, regfile_1, regfile_2, regfile_3,
-    regfile_4, regfile_5, regfile_6, regfile_7,
-    regfile_8, regfile_9, regfile_10, regfile_11,
-    regfile_12, regfile_13, regfile_14, regfile_15
+  int gprfile[16] = {
+    gprfile_0, gprfile_1, gprfile_2, gprfile_3,
+    gprfile_4, gprfile_5, gprfile_6, gprfile_7,
+    gprfile_8, gprfile_9, gprfile_10, gprfile_11,
+    gprfile_12, gprfile_13, gprfile_14, gprfile_15
   };
 
   for (int i = 0; i < 16; i++) {
-    core.gpr[i] = regfile[i];
+    core.gpr[i] = gprfile[i];
   }
+}
+
+extern "C" void csrfile_update(
+  int csrfile_mstatus, int csrfile_mtvec, int csrfile_mepc, int csrfile_mcause 
+) {
+  core.csr[mstatus] = csrfile_mstatus;
+  core.csr[mtvec] = csrfile_mtvec;
+  core.csr[mepc] = csrfile_mepc;
+  core.csr[mcause] = csrfile_mcause;
 }

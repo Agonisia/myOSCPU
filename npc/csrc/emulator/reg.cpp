@@ -18,16 +18,30 @@ const char *regs[] = {
   "s0", "s1", "a0", "a1", "a2", "a3", "a4", "a5",
 };
 
+const char *csrs[] = {
+  "mstatus", "mtvec", "mepc", "mcause"
+};
+
 /*
 * Output: regName hexNum decNum 
 */
 void reg_display() {
   // core.gpr[16]
+  printf("gpr:\n");
   for (int i = 0; i < ARRLEN(core.gpr); i++) {
-    printf("%-3s: 0x_%04x_%04x  (%u)\n", 
+    printf("  %-3s: 0x_%04x_%04x  (%u)\n", 
       regs[i], 
       (core.gpr[i] >> 16) & 0xFFFF, core.gpr[i] & 0xFFFF,
       core.gpr[i]);
+  }
+
+  // core.csr[4]
+  printf("csr:\n");
+  for (int i = 0; i < csr_num; i++) {
+    printf("  %-7s: 0x_%04x_%04x  (%u)\n", 
+      csrs[i],
+      (core.csr[i] >> 16) & 0xFFFF, core.csr[i] & 0xFFFF,
+      core.csr[i]);
   }
 }
 

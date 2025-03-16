@@ -23,7 +23,7 @@ void exception_trace();
 word_t isa_raise_intr(word_t NO, vaddr_t epc) {
   cpu.csr[mcause] = NO;
   cpu.csr[mepc] = epc;
-  
+  cpu.csr[mstatus] = 0x1800;
   IFDEF(CONFIG_ETRACE, exception_trace());
   return cpu.csr[mtvec];
 }

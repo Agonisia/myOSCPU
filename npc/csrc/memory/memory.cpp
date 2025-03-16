@@ -3,6 +3,21 @@
 
 static uint8_t pmem[CONFIG_MSIZE] PG_ALIGN = {};
 
+/* test set for srai
+  0xaeb10637,  // 00: lui a2, 0xaeb10
+  0x41f65693,  // 0C: srai a3, a2, 0x1f   
+  0x00100073,  // 10: ebreak
+*/
+
+/* test set for csrrw and csrrs 
+  0x00000013,  // 00, NOP
+  0x01600093,  // 04, addi x1, x0, 22
+  0x30009173,  // 08, csrrw x2, mstatus, x1
+  0x3000a1f3,  // 0c, csrrs x3, mstatus, x1
+  0x00100073,  // 0c, ebreak
+  0x06308093,  // 10, addi x1, x1, 99
+*/
+
 /* test set for load 
   0x00000097,  // 00: auipc x1, 0
   0x01C08103,  // 04, lb   x2, 28(x1) 

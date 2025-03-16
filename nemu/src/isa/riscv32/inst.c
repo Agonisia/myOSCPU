@@ -24,15 +24,17 @@
 #define Mw vaddr_write
 #define Byte 1
 
-/* Modify difftest.cc would found spike has different event NO send in ecall 
+/* modify difftest.cc would found spike has different event NO send in ecall 
 *  my solution is changing NEMU's event NO to 0xb
+*  remember switch to a5 if using RV32E, a7 for RV32I
 */
-#define ECALL(dnpc) {bool success; dnpc = isa_raise_intr(isa_reg_str2val("a7", &success), s->pc); }
+#define ECALL(dnpc) {bool success; dnpc = isa_raise_intr(isa_reg_str2val(MUXDEF(CONFIG_RVE, "a5", "a7"), &success), s->pc); }
+
 /* brochure or copilot would hint we need extra procedures like 
 *  CSR(mstatus) &= ~MSTATUS_MPP_MASK
 *  to switch privilege level, but we don't need to do that in NEMU
 */
-#define MRET(dnpc) {dnpc = cpu.csr[mepc]; } 
+#define MRET(dnpc) {cpu.csr[mstatus] = 0x80; dnpc = cpu.csr[mepc]; } 
 
 enum {
   TYPE_I, TYPE_U, TYPE_S,

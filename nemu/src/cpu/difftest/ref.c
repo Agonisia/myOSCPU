@@ -40,11 +40,19 @@ __EXPORT void difftest_regcpy(void *dut, bool direction) {
       cpu.gpr[i] = dut_state->gpr[i];
     }
     cpu.pc = dut_state->pc; 
+
+    for (int i = 0 ; i < csr_num; i++) {
+      cpu.csr[i] = dut_state->csr[i];
+    }
   } else {
     for (int i = 0; i < ARRLEN(cpu.gpr); i++) {
       dut_state->gpr[i] = cpu.gpr[i];
     }
-    dut_state->pc = cpu.pc; 
+    dut_state->pc = cpu.pc;
+
+    for (int i = 0; i < csr_num; i++) {
+      dut_state->csr[i] = cpu.csr[i];
+    }
   }
 }
 
@@ -53,7 +61,7 @@ __EXPORT void difftest_exec(uint64_t n) {
 }
 
 __EXPORT void difftest_raise_intr(word_t NO) {
-  assert(0);
+  cpu.pc = isa_raise_intr(NO, cpu.pc);
 }
 
 __EXPORT void difftest_init(int port) {

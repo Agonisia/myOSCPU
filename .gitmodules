@@ -13,3 +13,6 @@
 [submodule "npc/chisel"]
 	path = npc/chisel
 	url = git@github.com:Agonisia/my-chisel-for-ysyx.git
+[submodule "rt-thread-am"]
+	path = rt-thread-am
+	url = git@github.com:Agonisia/my-rt_thread-for-ysyx.git

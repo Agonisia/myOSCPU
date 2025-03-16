@@ -16,18 +16,32 @@ void difftest_skip_ref() {
 }
 
 static void checkregs(CORE_state *ref, vaddr_t pc) {
-  // printf("pc in checkregs = " FMT_WORD "\n", pc);
   
   for (int i = 0; i < ARRLEN(core.gpr); i++) {
     if (core.gpr[i] != ref->gpr[i]) {
-      Log("Register mismatch at gpr[%d]: DUT = " FMT_WORD ", REF = " FMT_WORD, i, core.gpr[i], ref->gpr[i]);
+      Log("mismatch gpr[%d]: \
+        DUT = " ANSI_FMT(FMT_WORD, ANSI_FG_RED) ", REF = " ANSI_FMT(FMT_WORD, ANSI_FG_RED), \
+        i, core.gpr[i], ref->gpr[i] \
+      );
       sim_state.state = SIM_ABORT;
       sim_state.halt_pc = core.pc;
       assert_fail_msg();
       return;
     }
   }
-  Log("Registers match at pc = " FMT_WORD, pc);
+
+  for (int i = 0; i < csr_num; i++) {
+    if (core.csr[i] != ref->csr[i]) {
+      Log("mismatch csr[%d]: \
+        DUT = " ANSI_FMT(FMT_WORD, ANSI_FG_RED) ", REF = " ANSI_FMT(FMT_WORD, ANSI_FG_RED), \
+        i, core.csr[i], ref->csr[i] \
+      );
+      sim_state.state = SIM_ABORT;
+      sim_state.halt_pc = core.pc;
+      assert_fail_msg();
+      return;
+    }
+  }
 }
 
 void difftest_step(vaddr_t pc) {

@@ -10,9 +10,18 @@
 
 #define SIM_MAX_LIMIT 10000
 
+typedef enum {
+  mstatus,
+  mtvec,
+  mepc,
+  mcause, 
+  csr_num
+} csr_index;
+
 typedef struct {
   word_t gpr[16]; // must be alligned with CPU_state in nemu, array must be same size
   vaddr_t pc;
+  word_t csr[csr_num];
   word_t inst;
   IFDEF(CONFIG_ITRACE, char logbuf[128]); // generate a buffer when itrace is on
 } CORE_state;
