@@ -18,6 +18,7 @@ flowchart LR
   end
  subgraph Registers["Registers"]
         GeneralPurposeRegs["GeneralPurposeRegs"]
+        ControlStatusRegs["ControlStatusRegs"]
         RegDisplaylHandler["RegDisplaylHandler"]
   end
  subgraph WriteBackUnit["WriteBackUnit"]
@@ -37,6 +38,7 @@ flowchart LR
         EBreakHandler
         FuncTraceHandler
         InstInvalidHandler
+        ExceptTraceHandler["ExceptTraceHandler"]
   end
  subgraph Verilator["Verilator"]
         Memory["Memory"]
@@ -47,12 +49,13 @@ flowchart LR
     InstDecodeUnit --> Registers & ExecuteUnit & FuncTraceHandler
     ExecuteUnit --> WriteBackUnit & InstFetchUnit & InstInvalidHandler & FuncTraceHandler
     MemAccessHandler <--> Memory
-    Registers --> ExecuteUnit & FuncTraceHandler
+    Registers --> ExecuteUnit & FuncTraceHandler & WriteBackUnit & ExceptTraceHandler
     WriteBackUnit --> Registers
     RegDisplaylHandler --> Verilator
     InstInvalidHandler --> Verilator
     FuncTraceHandler --> Verilator
     EBreakHandler --> Verilator
+    ExceptTraceHandler --> Verilator
     style MemReadHandler fill:#FFD600
     style MemAccessHandler fill:#FFD600
     style RegDisplaylHandler fill:#FFE0B2
@@ -64,5 +67,6 @@ flowchart LR
     style EBreakHandler fill:#FFE0B2
     style FuncTraceHandler fill:#FFE0B2
     style InstInvalidHandler fill:#FFE0B2
+    style ExceptTraceHandler fill:#FFE0B2
     style Verilator fill:#FFFFFF,stroke:#2962FF
     style Core fill:#FFFFFF,stroke:#FF6D00
